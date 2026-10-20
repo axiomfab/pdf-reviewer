@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "pdf_annotations": {
+      "command": "node",
+      "args": ["./src/mcp_server.mjs"]
+    }
+  }
+}

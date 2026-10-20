@@ -1,0 +1,12 @@
+{
+  "name": "pdf-reviewer",
+  "displayName": "PDF Reviewer & Annotator",
+  "version": "1.0.0",
+  "description": "Live PDF reviewer & annotator for Antigravity 2.0 auxiliary side pane with live hot-reloading and MCP annotations suite.",
+  "logo": "assets/logo.svg",
+  "suggestedPrompts": [
+    "Open the compiled paper in PDF Reviewer",
+    "List all PDF annotations and comments",
+    "Recompile document and review PDF"
+  ]
+}

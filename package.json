@@ -1,0 +1,25 @@
+{
+  "name": "pdf-reviewer-for-agy",
+  "version": "1.0.0",
+  "description": "Live PDF reviewer & annotator plugin for Antigravity 2.0 with auto hot-reloading and MCP tools",
+  "type": "module",
+  "scripts": {
+    "test": "node tests/test_plugin.mjs"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/axiomfab/pdf-reviewer"
+  },
+  "keywords": [
+    "antigravity",
+    "pdf",
+    "preview",
+    "latex",
+    "sidecar"
+  ],
+  "author": "axiomfab",
+  "license": "MIT",
+  "dependencies": {
+    "pdf-lib": "^1.17.1"
+  }
+}

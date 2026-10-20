@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PDF Reviewer</title>
+  <script src="/preload.js"></script>
+  <script>
+    window.reportDebug = function(msg) {
+      console.log('[DEBUG]', msg);
+      try {
+        const fetchFn = (window.sidecar && window.sidecar.fetch) || window.fetch;
+        fetchFn('/api/debug_log', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ message: msg, href: window.location.href, time: new Date().toISOString() })
+        });
+      } catch (e) {}
+    };
+    window.onerror = function(msg, url, line) {
+      window.reportDebug(`ERROR: ${msg} at ${url}:${line}`);
+    };
+  </script>
+  <link rel="stylesheet" href="/styles.css">
+  <link rel="stylesheet" href="/comments.css">
+  <script src="/lib/pdf.min.js"></script>
+</head>
+<body>
+  <header>
+    <div class="header-left">
+      <select id="pdf-select" title="Active PDF">
+        <option value="">Searching workspace for PDFs...</option>
+      </select>
+    </div>
+
+    <div class="header-center">
+      <div class="mode-switch">
+        <button id="mode-text-btn" class="mode-btn active" title="Select Text to Comment">🔤 Text</button>
+        <button id="mode-area-btn" class="mode-btn" title="Snip Image / Diagram to Comment">✂️ Snip</button>
+      </div>
+      <div class="history-controls">
+        <button id="undo-btn" class="icon-btn" title="Undo (Ctrl+Z)" disabled>↶</button>
+        <button id="redo-btn" class="icon-btn" title="Redo (Ctrl+Y)" disabled>↷</button>
+      </div>
+    </div>
+
+    <div class="header-right">
+      <button id="zoom-out-btn" title="Zoom Out">−</button>
+      <span id="zoom-level">Fit</span>
+      <button id="zoom-in-btn" title="Zoom In">+</button>
+      <button id="comments-toggle-btn" class="badge-btn" title="Open Comments Drawer">💬 <span id="comments-count">0</span></button>
+      <button id="refresh-btn" title="Force Reload">↻</button>
+    </div>
+  </header>
+
+  <div id="main-layout">
+    <main id="viewer-container">
+      <div id="empty-state" class="empty-state">
+        <h3>No PDF Detected</h3>
+        <p>Compile your LaTeX document (`scripts/build.ps1`) to preview it here.</p>
+      </div>
+      <div id="pages-container"></div>
+    </main>
+
+    <aside id="comments-drawer" class="comments-drawer">
+      <div class="drawer-header">
+        <h4>PDF Annotations</h4>
+        <button id="close-drawer-btn" class="icon-btn">✕</button>
+      </div>
+      <div id="comments-list" class="comments-list">
+        <div class="empty-drawer">No comments in this PDF. Highlight text or snip an area to embed one.</div>
+      </div>
+    </aside>
+  </div>
+
+  <div id="comment-popup" class="comment-popup" style="display: none;">
+    <div class="popup-header">
+      <span id="popup-title">Add PDF Annotation</span>
+      <button id="popup-close-btn" class="icon-btn">✕</button>
+    </div>
+    <div id="popup-preview" class="popup-preview"></div>
+    <textarea id="popup-input" placeholder="Type instruction for Antigravity..." rows="3"></textarea>
+    <div class="popup-actions">
+      <span id="popup-page-badge" class="badge">Page 1</span>
+      <button id="popup-submit-btn" class="primary-btn">Save to PDF</button>
+    </div>
+  </div>
+
+  <script src="/ui_comments.js"></script>
+  <script src="/app.js"></script>
+</body>
+</html>

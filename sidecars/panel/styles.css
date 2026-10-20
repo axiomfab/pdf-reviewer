@@ -1,0 +1,232 @@
+:root {
+  --bg-primary: #1e1e1e;
+  --bg-secondary: #252526;
+  --bg-tertiary: #2d2d2d;
+  --bg-hover: #37373d;
+  --text-main: #cccccc;
+  --text-dim: #858585;
+  --accent: #007acc;
+  --accent-hover: #0098ff;
+  --border: #3e3e42;
+  --highlight-box: rgba(255, 170, 0, 0.28);
+  --highlight-border: #ffaa00;
+  --pin-bg: #e67e22;
+  --font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: var(--font-family);
+  background-color: var(--bg-primary);
+  color: var(--text-main);
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+header {
+  background-color: var(--bg-secondary);
+  border-bottom: 1px solid var(--border);
+  padding: 5px 10px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.header-left, .header-center, .header-right {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+select {
+  background: var(--bg-tertiary);
+  color: var(--text-main);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 3px 6px;
+  font-size: 11px;
+  outline: none;
+  max-width: 140px;
+  text-overflow: ellipsis;
+}
+
+.mode-switch {
+  display: flex;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.mode-btn {
+  background: transparent;
+  color: var(--text-dim);
+  border: none;
+  padding: 3px 8px;
+  font-size: 11px;
+  cursor: pointer;
+  border-radius: 0;
+}
+
+.mode-btn.active {
+  background: var(--accent);
+  color: #fff;
+  font-weight: 600;
+}
+
+.history-controls {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  margin-left: 4px;
+}
+
+button {
+  background: var(--bg-tertiary);
+  color: var(--text-main);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 3px 7px;
+  font-size: 11px;
+  cursor: pointer;
+}
+button:hover { background: var(--bg-hover); }
+button:disabled {
+  opacity: 0.35;
+  cursor: default;
+  pointer-events: none;
+}
+
+.icon-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-dim);
+  cursor: pointer;
+  padding: 2px 4px;
+}
+.icon-btn:hover { color: #fff; background: transparent; }
+
+#zoom-level {
+  font-size: 11px;
+  color: var(--text-dim);
+  min-width: 28px;
+  text-align: center;
+}
+
+#main-layout {
+  flex: 1;
+  display: flex;
+  position: relative;
+  overflow: hidden;
+}
+
+#viewer-container {
+  flex: 1;
+  height: 100%;
+  overflow: auto;
+  background-color: #333333;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 14px;
+  position: relative;
+}
+
+#pages-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 18px;
+}
+
+.page-wrapper {
+  position: relative;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.45);
+  background-color: #ffffff;
+  overflow: hidden;
+}
+
+.pdf-page-canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+/* Scoped PDF.js Text Layer */
+.page-wrapper .textLayer {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  opacity: 1;
+  line-height: 1.0;
+  transform-origin: 0 0;
+  pointer-events: auto;
+  z-index: 2;
+}
+
+.page-wrapper .textLayer :is(span, br) {
+  color: transparent !important;
+  position: absolute;
+  white-space: pre;
+  cursor: text;
+  transform-origin: 0 0;
+}
+
+.page-wrapper .textLayer ::selection {
+  background: rgba(0, 122, 204, 0.4) !important;
+  color: transparent !important;
+}
+
+.page-wrapper .textLayer br::selection {
+  background: transparent !important;
+}
+
+.page-wrapper .textLayer .endOfContent {
+  display: block;
+  position: absolute;
+  inset: 100% 0 0;
+  z-index: -1;
+  cursor: default;
+  user-select: none;
+}
+
+.selection-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 5;
+}
+
+.snip-mode .selection-overlay {
+  pointer-events: auto;
+  cursor: crosshair;
+}
+
+.marquee-box {
+  position: absolute;
+  border: 2px dashed var(--highlight-border);
+  background-color: var(--highlight-box);
+  pointer-events: none;
+}
+
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: var(--text-dim);
+  text-align: center;
+  padding: 24px;
+  gap: 12px;
+}
