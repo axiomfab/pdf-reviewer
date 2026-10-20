@@ -233,4 +233,40 @@ const invalidMethodRes = await callRpc({
 assert.equal(invalidMethodRes.error.code, -32601);
 console.log('✅ PASS: Failure Path 7: MCP invalid method rejected with -32601');
 
+// 18. Happy Path & Failure Paths: RenderCoordinator Concurrency & Token Invalidation
+import fs from 'node:fs';
+import vm from 'node:vm';
+
+const appCode = fs.readFileSync(new URL('../sidecars/panel/app.js', import.meta.url), 'utf-8');
+const coordinatorMatch = appCode.match(/class RenderCoordinator \{[\s\S]*?\n\}/);
+assert(coordinatorMatch, 'Expected RenderCoordinator class in app.js');
+const evalContext = {};
+vm.runInNewContext(`${coordinatorMatch[0]}; evalContext.RenderCoordinator = RenderCoordinator;`, { evalContext });
+const { RenderCoordinator } = evalContext;
+
+// Happy Path: New generation starts, increments, and is active
+const coordinator = new RenderCoordinator();
+const gen1 = coordinator.startNew();
+assert.equal(gen1, 1);
+assert.equal(coordinator.isActive(gen1), true);
+console.log('✅ PASS: Happy Path 5: RenderCoordinator starts and tracks current generation');
+
+// Failure Path 8: Superceded generation is invalidated (prevents small/big multi-scale race)
+const gen2 = coordinator.startNew();
+assert.equal(gen2, 2);
+assert.equal(coordinator.isActive(gen1), false, 'Expected older generation 1 to be invalidated');
+assert.equal(coordinator.isActive(gen2), true, 'Expected generation 2 to be active');
+console.log('✅ PASS: Failure Path 8: RenderCoordinator rejects superceded rendering generations');
+
+// Failure Path 9: In-flight render tasks are actively cancelled when new generation arrives
+let task1Cancelled = false;
+let task2Cancelled = false;
+coordinator.addTask({ cancel: () => { task1Cancelled = true; } });
+coordinator.addTask({ cancel: () => { task2Cancelled = true; } });
+coordinator.addTask({ notATask: true }); // Malformed task without cancel() must not crash
+coordinator.startNew();
+assert.equal(task1Cancelled, true, 'Expected active task 1 to be cancelled');
+assert.equal(task2Cancelled, true, 'Expected active task 2 to be cancelled');
+console.log('✅ PASS: Failure Path 9: RenderCoordinator cancels active render tasks on new generation');
+
 console.log('\nAll unit tests passed successfully!');

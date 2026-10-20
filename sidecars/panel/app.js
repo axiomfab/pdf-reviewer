@@ -2,11 +2,41 @@ if (window.pdfjsLib) {
   window.pdfjsLib.GlobalWorkerOptions.workerSrc = '/lib/pdf.worker.min.js';
 }
 
+class RenderCoordinator {
+  constructor() {
+    this.currentGeneration = 0;
+    this.activeTasks = [];
+  }
+  startNew() {
+    const gen = ++this.currentGeneration;
+    for (const task of this.activeTasks) {
+      try {
+        if (task && typeof task.cancel === 'function') task.cancel();
+      } catch {}
+    }
+    this.activeTasks = [];
+    return gen;
+  }
+  isActive(gen) {
+    return gen === this.currentGeneration;
+  }
+  addTask(task) {
+    if (task) this.activeTasks.push(task);
+  }
+}
+
+if (typeof globalThis !== 'undefined') {
+  globalThis.RenderCoordinator = RenderCoordinator;
+}
+
+const renderCoordinator = new RenderCoordinator();
 let currentPdfDoc = null;
 let currentScale = 1.0;
 let isFitWidth = true;
 let isRendering = false;
+let isLoadingList = false;
 let cachedWorkspaceUri = null;
+let resizeDebounceTimer = null;
 
 const pdfSelect = document.getElementById('pdf-select');
 const refreshBtn = document.getElementById('refresh-btn');
@@ -78,6 +108,8 @@ window.apiRequest = async function (endpoint, method = 'GET', body = null) {
 };
 
 async function loadPdfList() {
+  if (isLoadingList) return;
+  isLoadingList = true;
   try {
     pdfSelect.innerHTML = '<option value="">Scanning...</option>';
     const data = await window.apiRequest('/api/list');
@@ -105,6 +137,8 @@ async function loadPdfList() {
   } catch (err) {
     console.error('loadPdfList error:', err);
     if (window.reportDebug) window.reportDebug(`loadPdfList error: ${err.message}`);
+  } finally {
+    isLoadingList = false;
   }
 }
 
@@ -142,19 +176,38 @@ async function loadAndRenderPdf(pdfPath) {
 
 async function renderAllPages() {
   if (!currentPdfDoc) return;
+  const thisGen = renderCoordinator.startNew();
+
+  const rawWidth = viewerContainer.clientWidth;
+  const containerWidth = rawWidth > 100
+    ? rawWidth - 50
+    : (window.innerWidth ? Math.max(window.innerWidth - 60, 250) : 400);
+
   pagesContainer.innerHTML = '';
   const numPages = currentPdfDoc.numPages;
-  const containerWidth = viewerContainer.clientWidth - 50;
 
+  // Pre-allocate slots to strictly guarantee exactly one DOM container per page in order
+  const pageWrappers = [];
   for (let pageNum = 1; pageNum <= numPages; pageNum++) {
-    const page = await currentPdfDoc.getPage(pageNum);
-    const unscaled = page.getViewport({ scale: 1.0 });
-    const scale = isFitWidth ? Math.min(Math.max(containerWidth / unscaled.width, 0.4), 2.5) : currentScale;
-
-    const viewport = page.getViewport({ scale });
     const wrapper = document.createElement('div');
     wrapper.className = 'page-wrapper';
     wrapper.dataset.pageNum = pageNum;
+    pagesContainer.appendChild(wrapper);
+    pageWrappers.push(wrapper);
+  }
+
+  for (let pageNum = 1; pageNum <= numPages; pageNum++) {
+    if (!renderCoordinator.isActive(thisGen)) return;
+
+    const page = await currentPdfDoc.getPage(pageNum);
+    if (!renderCoordinator.isActive(thisGen)) return;
+
+    const unscaled = page.getViewport({ scale: 1.0 });
+    const scale = isFitWidth ? Math.min(Math.max(containerWidth / unscaled.width, 0.4), 2.5) : currentScale;
+    const viewport = page.getViewport({ scale });
+
+    const wrapper = pageWrappers[pageNum - 1];
+    if (!wrapper) return;
     wrapper.style.width = `${viewport.width}px`;
     wrapper.style.height = `${viewport.height}px`;
 
@@ -162,30 +215,46 @@ async function renderAllPages() {
     canvas.className = 'pdf-page-canvas';
     canvas.height = viewport.height;
     canvas.width = viewport.width;
-    await page.render({ canvasContext: canvas.getContext('2d'), viewport }).promise;
+
+    const renderTask = page.render({ canvasContext: canvas.getContext('2d'), viewport });
+    renderCoordinator.addTask(renderTask);
+
+    try {
+      await renderTask.promise;
+    } catch (err) {
+      if (err?.name === 'RenderingCancelledException') return;
+      throw err;
+    }
+    if (!renderCoordinator.isActive(thisGen)) return;
 
     const textLayerDiv = document.createElement('div');
     textLayerDiv.className = 'textLayer';
     textLayerDiv.style.width = `${viewport.width}px`;
     textLayerDiv.style.height = `${viewport.height}px`;
     textLayerDiv.style.setProperty('--scale-factor', `${viewport.scale}`);
+
+    const textContentSource = await page.getTextContent();
+    if (!renderCoordinator.isActive(thisGen)) return;
+
     await window.pdfjsLib.renderTextLayer({
-      textContentSource: await page.getTextContent(),
+      textContentSource,
       container: textLayerDiv,
       viewport,
       textDivs: [],
     }).promise;
+    if (!renderCoordinator.isActive(thisGen)) return;
 
     const overlay = document.createElement('div');
     overlay.className = 'selection-overlay';
     window.attachAreaSelectionHandlers(overlay, canvas, pageNum);
 
+    wrapper.innerHTML = '';
     wrapper.appendChild(canvas);
     wrapper.appendChild(textLayerDiv);
     wrapper.appendChild(overlay);
-    pagesContainer.appendChild(wrapper);
   }
 
+  if (!renderCoordinator.isActive(thisGen)) return;
   zoomLevelText.textContent = isFitWidth ? 'Fit' : `${Math.round(currentScale * 100)}%`;
   window.renderCommentMarkersOnPages();
 }
@@ -256,7 +325,11 @@ zoomOutBtn.addEventListener('click', async () => {
 });
 
 window.addEventListener('resize', () => {
-  if (isFitWidth && currentPdfDoc) renderAllPages();
+  if (!isFitWidth || !currentPdfDoc) return;
+  clearTimeout(resizeDebounceTimer);
+  resizeDebounceTimer = setTimeout(() => {
+    renderAllPages();
+  }, 100);
 });
 
 loadPdfList();
