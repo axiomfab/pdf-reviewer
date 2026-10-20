@@ -16,7 +16,17 @@
 
 > [!NOTE]
 > ### 🎨 100% Heavily Vibe Coded
-> This plugin is **heavily vibe coded**. Built through fast, fluid pair programming sessions with Antigravity agents, it prioritizes immediate developer ergonomics, rapid iteration, and direct agent autonomy over enterprise ceremonial overhead. It works, it's fast, and the vibes are immaculate. If you spot code that looks delightfully unhinged or want to add a feature, tell your agent to vibe code a PR!
+> This plugin is **heavily vibe coded**. Built through fast, fluid pair programming sessions with Antigravity agents, it prioritizes immediate developer ergonomics, rapid iteration, and direct agent autonomy over enterprise ceremonial overhead. It works, it's fast, and the vibes are immaculate. Community contributions—whether authored by humans or AI agents—are highly appreciated!
+
+---
+
+## 🔄 The Closed-Loop LaTeX & Document Workflow
+
+When writing academic papers, reports, or documentation in LaTeX (or Typst) with Antigravity agents, context-switching between external PDF viewers and copying feedback back into chat breaks flow. PDF Reviewer eliminates that friction:
+
+1. **You ask Gemini to write or edit your LaTeX.** Your background compiler (`pdflatex`, `latexmk`, `typst watch`) rebuilds the document, which refreshes automatically in the right-hand auxiliary side panel without losing scroll or zoom position.
+2. **You review visually.** Directly on the rendered PDF, highlight awkward phrasing or box a misaligned table/equation and attach your review comment (e.g., *"rephrase this claim"*, *"table is overflowing margin"*, *"check equation 3"*).
+3. **Gemini fixes the source directly.** Instead of copying text into chat or describing coordinates, you simply tell Gemini: *"address the annotations on page 2"*. Gemini uses the bundled MCP server (`pdf_annotations`) to read the comments directly off the PDF, edits the underlying `.tex` source code, and the panel re-renders the corrected output.
 
 ---
 
