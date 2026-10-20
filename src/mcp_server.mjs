@@ -172,6 +172,10 @@ export async function handleMessage(msg, customSender = sendLine) {
     }
   }
 
+  if (id === undefined || id === null) {
+    return;
+  }
+
   return customSender({
     jsonrpc: '2.0',
     id,
@@ -180,7 +184,14 @@ export async function handleMessage(msg, customSender = sendLine) {
 }
 
 // Start stdio interface if executed directly
-if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
+const isDirectExecution = Boolean(
+  process.argv[1] &&
+    (fileURLToPath(import.meta.url) === process.argv[1] ||
+      path.resolve(process.argv[1]) === fileURLToPath(import.meta.url) ||
+      path.basename(process.argv[1]) === 'mcp_server.mjs')
+);
+
+if (isDirectExecution) {
   const rl = readline.createInterface({
     input: process.stdin,
     output: process.stdout,
