@@ -21,14 +21,26 @@
 
 ---
 
-## ⚡ Core Agent Capabilities: Full CRUD on PDF Comments
+## 🚀 Features
 
-PDF Reviewer bridges the gap between compiled documents and autonomous AI pair programmers by giving Antigravity native Model Context Protocol (MCP) tools to interact with PDF comments:
+### 🤖 1. Agent Capabilities: Full CRUD on PDF Comments
+PDF Reviewer bridges compiled documents and autonomous AI pair programmers by giving Antigravity native Model Context Protocol (MCP) tools to operate directly on PDF comments:
 
-* 📖 **Read Comments (`mcp_pdf_annotations_list`)**: Antigravity inspects user feedback, extracts highlighted phrases, sticky notes, and diagram coordinates across the entire document or on a specific page.
+* 📖 **Read Comments (`mcp_pdf_annotations_list`)**: Antigravity inspects user feedback, extracting highlighted phrases, sticky notes, and diagram coordinates across the entire document or on a specific page.
 * ✍️ **Write Comments (`mcp_pdf_annotations_add`)**: Antigravity programmatically embeds native ISO 32000 annotations into the PDF—attaching review notes, citations, proposed replacements (`strike`), or bounding boxes (`area`).
 * ✏️ **Modify Comments (`mcp_pdf_annotations_modify`)**: Antigravity updates existing comment text, changes status (e.g. marking comments as `resolved`), or appends clarification replies without altering document geometry.
 * 🗑️ **Delete Comments (`mcp_pdf_annotations_delete` & `clear`)**: Antigravity purges resolved review comments by ID once underlying code/LaTeX has been fixed, or clears all annotations upon final approval.
+
+### 🖥️ 2. Interactive Sidecar UI: Sidebar Viewing & Commenting
+An embedded, lightweight viewer rendered directly inside the Antigravity 2.0 auxiliary side panel (`SIDECAR_UI_ENTRYPOINT_AUX_PANE`):
+
+* **Instant Hot-Reload**: Automatically detects workspace file changes (e.g. from `pdflatex`, `typst watch`, or `marp`) and refreshes seamlessly without losing your current zoom or scroll position.
+* **View & Add Comments in the Sidebar**:
+  * 🔤 **Text Mode**: Highlight any text span on the page to attach an inline comment.
+  * ✂️ **Snip Mode**: Marquee-box diagrams, math equations, or charts to attach targeted visual feedback.
+* **Comments Drawer & Controls**: Slide-out drawer with a complete list of annotations, status badges, and full Undo/Redo (`Ctrl+Z` / `Ctrl+Y`) history.
+* **Multi-Document Scanner**: Automatically finds PDF documents across project workspaces (root, `build/`, `output/`) with a one-click dropdown switcher.
+* **Zero Heavy Dependencies**: Built purely with `pdf-lib` for robust vector PDF manipulation and Node.js standard libraries for stdio JSON-RPC.
 
 ---
 
@@ -37,7 +49,7 @@ PDF Reviewer bridges the gap between compiled documents and autonomous AI pair p
 When writing academic papers, reports, or documentation in LaTeX (or Typst) with Antigravity agents, context-switching between external PDF viewers and copying feedback back into chat breaks flow. PDF Reviewer eliminates that friction:
 
 1. **You ask Gemini to write or edit your LaTeX.** Your background compiler (`pdflatex`, `latexmk`, `typst watch`) rebuilds the document, which refreshes automatically in the right-hand auxiliary side panel without losing scroll or zoom position.
-2. **You review visually.** Directly on the rendered PDF, highlight awkward phrasing or box a misaligned table/equation and attach your review comment (e.g., *"rephrase this claim"*, *"table is overflowing margin"*, *"check equation 3"*).
+2. **You review visually in the sidebar.** Directly on the rendered PDF, highlight awkward phrasing or box a misaligned table/equation and attach your review comment (e.g., *"rephrase this claim"*, *"table is overflowing margin"*, *"check equation 3"*).
 3. **Gemini reads & fixes directly.** Instead of copying text into chat or describing coordinates, you simply tell Gemini: *"Address the annotations on page 2 and mark them resolved"*. Gemini uses `mcp_pdf_annotations_list` to read the comments, fixes the underlying `.tex` code, calls `mcp_pdf_annotations_modify` or `mcp_pdf_annotations_delete`, and the panel re-renders the corrected output.
 
 ---
@@ -62,19 +74,6 @@ cd ~/.gemini/config/plugins/pdf-reviewer
 npm install
 ```
 *Note: Restart your Antigravity session or reload the window after installation to discover the newly mounted plugin.*
-
----
-
-## 🚀 Key Features
-
-* **Complete PDF Comment CRUD**: Native toolset for reading, writing, modifying, and deleting annotations.
-* **Embedded Auxiliary View**: Renders directly inside the Antigravity 2.0 auxiliary side panel (`SIDECAR_UI_ENTRYPOINT_AUX_PANE`).
-* **Instant Hot-Reload**: Automatically detects workspace file changes (e.g. from `pdflatex`, `typst watch`, or `marp`) and refreshes seamlessly without losing your current zoom or scroll position.
-* **Interactive UI Reviewing**:
-  * 🔤 **Text Comments**: Highlight text spans and attach comments.
-  * ✂️ **Area Snip**: Box diagrams, math equations, or charts with custom comments.
-* **Zero Heavy Dependencies**: Built purely with `pdf-lib` for robust vector PDF manipulation and Node.js standard libraries for stdio JSON-RPC.
-* **Multi-Document Scanner**: Automatically finds PDF documents across project workspaces (root, `build/`, `output/`) with a one-click dropdown switcher.
 
 ---
 
