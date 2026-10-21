@@ -36,19 +36,23 @@
     <div class="header-center">
       <div class="mode-switch">
         <button id="mode-text-btn" class="mode-btn active" title="Select Text to Comment">🔤 Text</button>
+        <button id="mode-strike-btn" class="mode-btn" title="Select Text to Strike through & Propose Replacement"><s>T</s> Strike</button>
+        <button id="mode-note-btn" class="mode-btn" title="Click anywhere to drop a Sticky Note">📌 Note</button>
         <button id="mode-area-btn" class="mode-btn" title="Snip Image / Diagram to Comment">✂️ Snip</button>
-      </div>
-      <div class="history-controls">
-        <button id="undo-btn" class="icon-btn" title="Undo (Ctrl+Z)" disabled>↶</button>
-        <button id="redo-btn" class="icon-btn" title="Redo (Ctrl+Y)" disabled>↷</button>
       </div>
     </div>
 
     <div class="header-right">
-      <button id="zoom-out-btn" title="Zoom Out">−</button>
-      <span id="zoom-level">Fit</span>
-      <button id="zoom-in-btn" title="Zoom In">+</button>
-      <button id="comments-toggle-btn" class="badge-btn" title="Open Comments Drawer">💬 <span id="comments-count">0</span></button>
+      <div class="history-controls">
+        <button id="undo-btn" class="icon-btn" title="Undo (Ctrl+Z)" disabled>↶</button>
+        <button id="redo-btn" class="icon-btn" title="Redo (Ctrl+Y)" disabled>↷</button>
+      </div>
+      <div class="zoom-controls">
+        <button id="zoom-out-btn" title="Zoom Out">−</button>
+        <span id="zoom-level">Fit</span>
+        <button id="zoom-in-btn" title="Zoom In">+</button>
+      </div>
+      <button id="comments-toggle-btn" class="toggle-btn" title="Display all comment boxes on page">💬 Show All (<span id="comments-count">0</span>)</button>
       <button id="refresh-btn" title="Force Reload">↻</button>
     </div>
   </header>
@@ -61,16 +65,6 @@
       </div>
       <div id="pages-container"></div>
     </main>
-
-    <aside id="comments-drawer" class="comments-drawer">
-      <div class="drawer-header">
-        <h4>PDF Annotations</h4>
-        <button id="close-drawer-btn" class="icon-btn">✕</button>
-      </div>
-      <div id="comments-list" class="comments-list">
-        <div class="empty-drawer">No comments in this PDF. Highlight text or snip an area to embed one.</div>
-      </div>
-    </aside>
   </div>
 
   <div id="comment-popup" class="comment-popup" style="display: none;">
@@ -79,6 +73,9 @@
       <button id="popup-close-btn" class="icon-btn">✕</button>
     </div>
     <div id="popup-preview" class="popup-preview"></div>
+    <div id="popup-replacement-group" style="display: none; margin-bottom: 8px;">
+      <input type="text" id="popup-replacement-input" placeholder="Replacement text (leave empty to delete)..." />
+    </div>
     <textarea id="popup-input" placeholder="Type instruction for Antigravity..." rows="3"></textarea>
     <div class="popup-actions">
       <span id="popup-page-badge" class="badge">Page 1</span>
@@ -86,7 +83,8 @@
     </div>
   </div>
 
-  <script src="/ui_comments.js"></script>
-  <script src="/app.js"></script>
+  <script src="/ui_history.js?v=20261022_7"></script>
+  <script src="/ui_comments.js?v=20261022_7"></script>
+  <script src="/app.js?v=20261022_7"></script>
 </body>
 </html>

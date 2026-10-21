@@ -23,23 +23,50 @@ body {
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  container-type: inline-size;
 }
 
 header {
   background-color: var(--bg-secondary);
   border-bottom: 1px solid var(--border);
-  padding: 5px 10px;
+  padding: 6px 8px;
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
-  gap: 6px;
+  gap: 5px 6px;
   flex-shrink: 0;
 }
 
-.header-left, .header-center, .header-right {
+.header-left {
+  order: 1;
   display: flex;
   align-items: center;
-  gap: 5px;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.header-right {
+  order: 2;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+  margin-left: auto;
+}
+
+.header-center {
+  order: 3;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: stretch;
+}
+
+.zoom-controls {
+  display: flex;
+  align-items: center;
+  gap: 2px;
 }
 
 select {
@@ -50,12 +77,15 @@ select {
   padding: 3px 6px;
   font-size: 11px;
   outline: none;
-  max-width: 140px;
+  width: 100%;
+  max-width: 150px;
+  min-width: 60px;
   text-overflow: ellipsis;
 }
 
 .mode-switch {
   display: flex;
+  width: 100%;
   background: var(--bg-tertiary);
   border: 1px solid var(--border);
   border-radius: 4px;
@@ -63,13 +93,28 @@ select {
 }
 
 .mode-btn {
+  flex: 1;
   background: transparent;
   color: var(--text-dim);
   border: none;
-  padding: 3px 8px;
+  padding: 4px 4px;
   font-size: 11px;
   cursor: pointer;
   border-radius: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  white-space: nowrap;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.mode-btn + .mode-btn {
+  border-left: 1px solid var(--border);
+}
+
+.mode-btn:hover {
+  background: var(--bg-hover);
+  color: var(--text-main);
 }
 
 .mode-btn.active {
@@ -78,11 +123,33 @@ select {
   font-weight: 600;
 }
 
+.mode-btn.active:hover {
+  background: var(--accent-hover);
+}
+
 .history-controls {
   display: flex;
   align-items: center;
   gap: 2px;
-  margin-left: 4px;
+}
+
+/* Wide layout: when sidebar is wide enough (>= 540px), move tools back into center of top toolbar */
+@media (min-width: 540px) {
+  header { flex-wrap: nowrap; justify-content: space-between; }
+  .header-left { order: 1; flex: 0 1 auto; }
+  .header-center { order: 2; width: auto; flex: 0 1 auto; }
+  .header-right { order: 3; margin-left: 0; }
+  .mode-switch { width: auto; }
+  .mode-btn { flex: initial; padding: 3px 8px; }
+}
+
+@container (min-width: 540px) {
+  header { flex-wrap: nowrap; justify-content: space-between; }
+  .header-left { order: 1; flex: 0 1 auto; }
+  .header-center { order: 2; width: auto; flex: 0 1 auto; }
+  .header-right { order: 3; margin-left: 0; }
+  .mode-switch { width: auto; }
+  .mode-btn { flex: initial; padding: 3px 8px; }
 }
 
 button {
@@ -210,6 +277,11 @@ button:disabled {
 .snip-mode .selection-overlay {
   pointer-events: auto;
   cursor: crosshair;
+}
+
+.note-mode .selection-overlay {
+  pointer-events: auto;
+  cursor: copy;
 }
 
 .marquee-box {

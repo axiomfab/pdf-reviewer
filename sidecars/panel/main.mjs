@@ -1,5 +1,5 @@
 import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
-import { basename, dirname, join, resolve } from 'node:path';
+import { basename, dirname, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { Response, SidecarApp } from 'sidecar_sdk';
 import {
@@ -7,9 +7,10 @@ import {
   clearPdfComments,
   deletePdfComment,
   listPdfComments,
+  modifyPdfComment,
 } from './pdf_annotations.mjs';
 
-export { addPdfComment, clearPdfComments, deletePdfComment, listPdfComments };
+export { addPdfComment, clearPdfComments, deletePdfComment, listPdfComments, modifyPdfComment };
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const readLocal = (rel) => readFileSync(join(HERE, rel), 'utf8');
@@ -42,7 +43,7 @@ export function findWorkspacePdfs(workspaceRoot) {
             results.push({
               name: entry.name,
               path: fullPath,
-              relPath: fullPath.replace(workspaceRoot, '').replace(/^[\\/]/, ''),
+              relPath: relative(workspaceRoot, fullPath) || basename(fullPath),
               mtime: stat.mtimeMs,
               size: stat.size,
             });
@@ -80,6 +81,7 @@ if (isSidecar) {
 
   app.page('/', () => new Response(readLocal('index.html'), { contentType: 'text/html', headers: { 'Cache-Control': 'no-cache, no-store' } }));
   app.page('/app.js', () => new Response(readLocal('app.js'), { contentType: 'application/javascript', headers: { 'Cache-Control': 'no-cache, no-store' } }));
+  app.page('/ui_history.js', () => new Response(readLocal('ui_history.js'), { contentType: 'application/javascript', headers: { 'Cache-Control': 'no-cache, no-store' } }));
   app.page('/ui_comments.js', () => new Response(readLocal('ui_comments.js'), { contentType: 'application/javascript', headers: { 'Cache-Control': 'no-cache, no-store' } }));
   app.page('/lib/pdf.min.js', () => readLocal('lib/pdf.min.js'));
   app.page('/lib/pdf.worker.min.js', () => readLocal('lib/pdf.worker.min.js'));
@@ -92,18 +94,34 @@ if (isSidecar) {
   }, 'POST');
 
   const getWorkspace = (data) => {
+    let ws = null;
     if (data?.workspaceUri) {
       try {
         const parsed = fileURLToPath(data.workspaceUri);
-        if (existsSync(parsed)) return parsed;
+        if (existsSync(parsed)) ws = parsed;
       } catch {}
     }
-    const cwd = process.cwd();
-    if (cwd.includes('plugins') || cwd.includes('sidecars')) {
-      const defaultWs = 'C:\\Users\\lukas\\Desktop\\weavemas-paper';
-      if (existsSync(defaultWs)) return defaultWs;
+    if (!ws) {
+      ws = process.cwd();
     }
-    return cwd;
+
+    // Check if the current workspace candidate has any PDFs
+    try {
+      const found = findWorkspacePdfs(ws);
+      if (found.length > 0) return ws;
+    } catch {}
+
+    // Fallback: When running inside plugins/sidecars or a workspace without PDFs,
+    // look for paper workspace
+    const defaultWs = 'C:\\Users\\lukas\\Desktop\\weavemas-paper';
+    if (existsSync(defaultWs)) {
+      try {
+        const fallbackFound = findWorkspacePdfs(defaultWs);
+        if (fallbackFound.length > 0) return defaultWs;
+      } catch {}
+    }
+
+    return ws;
   };
 
   app.api('/api/list', (data) => {
@@ -166,6 +184,19 @@ if (isSidecar) {
     }
     const { deleted, mtime } = await deletePdfComment(target.path, data?.id);
     return { success: Boolean(deleted), comment: deleted, mtime };
+  }, 'POST');
+
+  app.api('/api/comments/modify', async (data) => {
+    const ws = getWorkspace(data);
+    const target = resolveTargetPdf(ws, data?.pdfPath);
+    if (!target) {
+      return new Response(JSON.stringify({ error: 'Target PDF not found' }), {
+        contentType: 'application/json',
+        status: 404,
+      });
+    }
+    const { comment, mtime } = await modifyPdfComment(target.path, data?.id || data?.commentId, data);
+    return { success: true, comment, mtime };
   }, 'POST');
 
   app.run();

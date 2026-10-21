@@ -7,6 +7,7 @@ import {
   clearPdfComments,
   deletePdfComment,
   listPdfComments,
+  modifyPdfComment,
 } from '../sidecars/panel/pdf_annotations.mjs';
 
 const PROTOCOL_VERSION = '2024-11-05';
@@ -46,23 +47,28 @@ export async function executeToolCall(name, args = {}) {
   }
 
   if (normalized === 'add') {
-    const { pdfPath, page, type, comment, selectedText, imageB64, rect, textRects, id } = args;
+    const { pdfPath, page, type = 'note', author, comment, selectedText, imageB64, rect, textRects, id } = args;
     if (!pdfPath || typeof pdfPath !== 'string') {
       throw new Error("CRITICAL: 'pdfPath' is required and must be a string");
     }
     if (page === undefined || page === null || typeof page !== 'number' || page < 1) {
       throw new Error("CRITICAL: 'page' is required and must be a positive integer");
     }
-    if (!type || typeof type !== 'string' || !['text', 'area'].includes(type)) {
-      throw new Error("CRITICAL: 'type' is required and must be 'text' or 'area'");
+    const resolvedType = type || 'note';
+    if (typeof resolvedType !== 'string' || !['note', 'text', 'area'].includes(resolvedType)) {
+      throw new Error("CRITICAL: 'type' must be 'note', 'text', or 'area'");
     }
     if (!comment || typeof comment !== 'string' || !comment.trim()) {
       throw new Error("CRITICAL: 'comment' is required and must be a non-empty string");
     }
+    if (author !== undefined && author !== null && (typeof author !== 'string' || !author.trim())) {
+      throw new Error("CRITICAL: 'author' must be a non-empty string if provided");
+    }
 
     const res = await addPdfComment(pdfPath, {
       id,
-      type,
+      type: resolvedType,
+      author: (author && author.trim()) || 'AI Reviewer',
       page,
       comment: comment.trim(),
       selectedText: selectedText || null,
@@ -70,6 +76,37 @@ export async function executeToolCall(name, args = {}) {
       rect: rect || null,
       textRects: Array.isArray(textRects) ? textRects : null,
     });
+    return JSON.stringify(res, null, 2);
+  }
+
+  if (normalized === 'modify' || normalized === 'update') {
+    const { pdfPath, commentId, id, comment, author, status } = args;
+    if (!pdfPath || typeof pdfPath !== 'string') {
+      throw new Error("CRITICAL: 'pdfPath' is required and must be a string");
+    }
+    const targetId = commentId || id;
+    if (!targetId || typeof targetId !== 'string') {
+      throw new Error("CRITICAL: 'commentId' is required and must be a non-empty string");
+    }
+    if (comment === undefined && author === undefined && status === undefined) {
+      throw new Error("CRITICAL: At least one of 'comment', 'author', or 'status' must be provided to modify");
+    }
+    if (comment !== undefined && (typeof comment !== 'string' || !comment.trim())) {
+      throw new Error("CRITICAL: 'comment' must be a non-empty string if provided");
+    }
+    if (author !== undefined && (typeof author !== 'string' || !author.trim())) {
+      throw new Error("CRITICAL: 'author' must be a non-empty string if provided");
+    }
+    if (status !== undefined && (typeof status !== 'string' || !status.trim())) {
+      throw new Error("CRITICAL: 'status' must be a non-empty string if provided");
+    }
+
+    const updates = {};
+    if (comment !== undefined) updates.comment = comment.trim();
+    if (author !== undefined) updates.author = author.trim();
+    if (status !== undefined) updates.status = status.trim();
+
+    const res = await modifyPdfComment(pdfPath, targetId, updates);
     return JSON.stringify(res, null, 2);
   }
 

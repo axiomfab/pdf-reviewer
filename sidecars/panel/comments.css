@@ -42,11 +42,349 @@
   align-items: center;
   gap: 3px;
   transform: translate(-50%, -50%);
-  z-index: 20;
+  z-index: 1000;
+  opacity: 0;
+  visibility: hidden;
+  transition: background-color 0.15s ease, opacity 0.15s ease, visibility 0.15s ease;
 }
 .pdf-comment-pin:hover {
   background-color: #d35400;
-  transform: translate(-50%, -50%) scale(1.1);
+}
+
+/* Comment anchor for non-note annotations (zero-sized, bubbles hidden) */
+.pdf-comment-anchor {
+  position: absolute;
+  width: 0;
+  height: 0;
+  pointer-events: none;
+  z-index: 1000;
+}
+.pdf-comment-anchor .pin-tooltip {
+  pointer-events: auto;
+}
+
+/* Comment bubbles on text highlights and area boxes are hidden by default, visible on hover */
+.pdf-text-highlight > .pdf-comment-pin,
+.pdf-text-strike > .pdf-comment-pin,
+.pdf-comment-box > .pdf-comment-pin {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity 0.15s ease, visibility 0.15s ease;
+}
+
+.pdf-text-highlight:hover > .pdf-comment-pin,
+.pdf-text-highlight.highlight > .pdf-comment-pin,
+.pdf-text-strike:hover > .pdf-comment-pin,
+.pdf-text-strike.highlight > .pdf-comment-pin,
+.pdf-comment-box:hover > .pdf-comment-pin,
+.pdf-comment-box.highlight > .pdf-comment-pin,
+.pdf-comment-pin:hover,
+.pdf-comment-pin.pin-visible,
+.pdf-comment-pin.pin-active {
+  opacity: 1 !important;
+  visibility: visible !important;
+  pointer-events: auto !important;
+}
+
+/* Text highlights and area boxes stay beneath pins */
+.pdf-text-highlight,
+.pdf-text-strike,
+.pdf-comment-box {
+  z-index: 10;
+}
+
+.pdf-text-highlight:hover,
+.pdf-text-highlight.highlight,
+.pdf-text-strike:hover,
+.pdf-text-strike.highlight,
+.pdf-comment-box:hover,
+.pdf-comment-box.highlight {
+  z-index: 20;
+}
+
+/* Active popovers elevate pins to topmost plane */
+.pdf-text-highlight.pin-parent-active,
+.pdf-text-strike.pin-parent-active,
+.pdf-comment-box.pin-parent-active {
+  z-index: 99999 !important;
+}
+
+.pdf-comment-pin:hover,
+.pdf-comment-pin.pin-visible,
+.pdf-comment-pin.pin-active {
+  z-index: 100000 !important;
+}
+
+/* Sticky notes are always visible */
+.pdf-comment-pin.pin-note {
+  opacity: 1 !important;
+  visibility: visible !important;
+  pointer-events: auto !important;
+}
+
+/* Hover Tooltip Popover on Comment Bubble */
+.pin-tooltip {
+  position: absolute;
+  background-color: var(--bg-secondary);
+  border: 1px solid var(--border);
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.85);
+  border-radius: 6px;
+  padding: 9px 11px;
+  width: 290px;
+  box-sizing: border-box;
+  font-size: 11px;
+  font-weight: normal;
+  color: var(--text-main);
+  line-height: 1.4;
+  pointer-events: auto;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.15s ease, visibility 0.15s ease;
+  z-index: 100001 !important;
+  white-space: normal;
+  word-break: break-word;
+  text-align: left;
+  cursor: default;
+}
+
+/* Invisible bridge so mouse can seamlessly glide between highlight/pin and popover */
+.pin-tooltip::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 14px;
+}
+
+.pin-tooltip.tooltip-below::before {
+  top: -14px;
+}
+
+.pin-tooltip.tooltip-above::before {
+  bottom: -14px;
+}
+
+.pin-tooltip::after {
+  content: '';
+  position: absolute;
+  left: var(--arrow-x, 24px);
+  transform: translateX(-50%);
+  border: 6px solid transparent;
+}
+
+.pin-tooltip.tooltip-below::after {
+  top: -12px;
+  bottom: auto;
+  border-bottom-color: var(--border);
+}
+
+.pin-tooltip.tooltip-above::after {
+  bottom: -12px;
+  top: auto;
+  border-top-color: var(--border);
+}
+
+.pin-tooltip.tooltip-right {
+  left: auto;
+  right: -6px;
+  transform: none;
+}
+
+.pin-tooltip.tooltip-left {
+  left: -6px;
+  right: auto;
+  transform: none;
+}
+
+.pdf-comment-pin:hover .pin-tooltip,
+.pin-tooltip:hover,
+.pin-tooltip.active,
+.pin-tooltip.pin-visible,
+.pdf-comment-pin.pin-active .pin-tooltip {
+  opacity: 1 !important;
+  visibility: visible !important;
+  pointer-events: auto !important;
+}
+
+.pin-tooltip-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 5px;
+  padding-bottom: 4px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.pin-tooltip-author {
+  font-weight: 600;
+  font-size: 11px;
+}
+.pin-tooltip-author.ai-author {
+  color: #38bdf8;
+}
+.pin-tooltip-author.user-author {
+  color: #facc15;
+}
+
+.pin-tooltip-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.pin-tooltip-meta {
+  color: var(--text-dim);
+  font-size: 9px;
+  text-transform: uppercase;
+}
+
+.pin-tooltip-delete {
+  background: transparent;
+  border: none;
+  font-size: 11px;
+  cursor: pointer;
+  padding: 0 2px;
+  line-height: 1;
+  opacity: 0.75;
+  transition: opacity 0.15s ease, transform 0.1s ease;
+}
+.pin-tooltip-delete:hover {
+  opacity: 1;
+  transform: scale(1.15);
+}
+
+.pin-tooltip-close {
+  background: transparent;
+  border: none;
+  color: var(--text-dim);
+  font-size: 11px;
+  cursor: pointer;
+  padding: 0 2px;
+  line-height: 1;
+}
+.pin-tooltip-close:hover {
+  color: #fff;
+}
+
+.pin-tooltip-snippet {
+  font-size: 10px;
+  font-style: italic;
+  color: var(--text-dim);
+  margin-bottom: 6px;
+  background: var(--bg-primary);
+  padding: 3px 6px;
+  border-left: 2px solid var(--accent);
+  border-radius: 2px;
+}
+
+.pin-tooltip-body {
+  color: var(--text-main);
+  font-size: 11px;
+  position: relative;
+  cursor: pointer;
+  border-radius: 4px;
+  padding: 2px 4px;
+  transition: background 0.15s ease;
+}
+.pin-tooltip-body:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.pin-comment-display {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 6px;
+}
+
+.pin-edit-icon {
+  opacity: 0.5;
+  font-size: 10px;
+  margin-left: 4px;
+  cursor: pointer;
+}
+.pin-tooltip-body:hover .pin-edit-icon {
+  opacity: 1;
+}
+
+.pin-edit-form {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  margin-top: 4px;
+}
+
+.pin-edit-textarea {
+  width: 100%;
+  box-sizing: border-box;
+  background: var(--bg-primary);
+  border: 1px solid var(--accent);
+  color: var(--text-main);
+  border-radius: 4px;
+  padding: 5px;
+  font-size: 11px;
+  font-family: inherit;
+  resize: vertical;
+  min-height: 48px;
+}
+.pin-edit-textarea:focus {
+  outline: none;
+  border-color: var(--accent-hover);
+}
+
+.pin-edit-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 4px;
+}
+
+.pin-save-btn, .pin-cancel-btn {
+  font-size: 10px;
+  padding: 2px 8px;
+  border-radius: 3px;
+  border: none;
+  cursor: pointer;
+}
+.pin-save-btn {
+  background: var(--accent);
+  color: #fff;
+}
+.pin-save-btn:hover {
+  background: var(--accent-hover);
+}
+.pin-cancel-btn {
+  background: var(--bg-tertiary);
+  color: var(--text-dim);
+}
+.pin-cancel-btn:hover {
+  color: var(--text-main);
+}
+
+.ai-pin {
+  background-color: #0284c7 !important;
+}
+.ai-pin:hover {
+  background-color: #0369a1 !important;
+}
+
+.ai-badge {
+  background: rgba(2, 132, 199, 0.2);
+  color: #38bdf8;
+  border: 1px solid rgba(56, 189, 248, 0.4);
+  font-size: 10px;
+  padding: 1px 5px;
+  border-radius: 4px;
+}
+
+.user-badge {
+  background: rgba(234, 179, 8, 0.2);
+  color: #facc15;
+  border: 1px solid rgba(250, 204, 21, 0.4);
+  font-size: 10px;
+  padding: 1px 5px;
+  border-radius: 4px;
 }
 
 .pin-delete {
@@ -134,85 +472,99 @@ textarea#popup-input:focus { border-color: var(--accent); }
 }
 .primary-btn:hover { background: var(--accent-hover); }
 
-/* Comments Drawer */
-.comments-drawer {
-  position: absolute;
-  top: 0;
-  right: -320px;
-  width: 310px;
-  height: 100%;
-  background: var(--bg-secondary);
-  border-left: 1px solid var(--border);
-  box-shadow: -4px 0 16px rgba(0, 0, 0, 0.4);
-  transition: right 0.2s ease-in-out;
-  display: flex;
-  flex-direction: column;
-  z-index: 900;
-}
-.comments-drawer.open { right: 0; }
-
-.drawer-header {
-  padding: 10px;
-  border-bottom: 1px solid var(--border);
-  display: flex;
-  justify-content: space-between;
+/* Toggle All Comments Button */
+.toggle-btn {
+  display: inline-flex;
   align-items: center;
-}
-
-.comments-list {
-  flex: 1;
-  overflow-y: auto;
-  padding: 10px;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.comment-card {
+  gap: 4px;
   background: var(--bg-tertiary);
+  color: var(--text-main);
   border: 1px solid var(--border);
   border-radius: 4px;
-  padding: 8px;
-  font-size: 12px;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  position: relative;
-}
-.comment-card.highlight {
-  border-color: var(--pin-bg);
-}
-
-.comment-card-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
+  padding: 3px 8px;
   font-size: 11px;
-}
-
-.delete-btn {
-  background: transparent;
-  border: none;
-  color: #e74c3c;
   cursor: pointer;
-  padding: 2px 5px;
-  font-size: 11px;
+  transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease;
 }
-.delete-btn:hover {
-  background: rgba(231, 76, 60, 0.15);
-  border-radius: 3px;
+.toggle-btn:hover {
+  background: var(--bg-hover);
+}
+.toggle-btn.active {
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent-hover);
+  font-weight: 600;
 }
 
-.comment-card-snippet img {
-  max-width: 100%;
-  max-height: 80px;
+/* Display All Comment Boxes Mode */
+body.show-all-comments .pin-tooltip:not(.box-hidden) {
+  opacity: 1 !important;
+  visibility: visible !important;
+  pointer-events: auto !important;
+}
+
+body.show-all-comments .pdf-comment-pin {
+  opacity: 1 !important;
+  visibility: visible !important;
+  pointer-events: auto !important;
+}
+
+
+/* Strikethrough & Sticky Note Styles */
+.pdf-text-strike {
+  position: absolute;
+  background-color: rgba(239, 68, 68, 0.25);
   border-radius: 2px;
-  margin-top: 4px;
+  cursor: pointer;
+  pointer-events: auto;
+  transition: background-color 0.15s ease;
+  z-index: 10;
+}
+.pdf-text-strike::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 50%;
+  height: 2px;
+  background-color: #ef4444;
+  transform: translateY(-50%);
+}
+.pdf-text-strike:hover, .pdf-text-strike.highlight {
+  background-color: rgba(239, 68, 68, 0.45);
 }
 
-.empty-drawer {
-  color: var(--text-dim);
-  font-size: 11px;
-  text-align: center;
-  padding-top: 30px;
+.pin-note {
+  background-color: #eab308 !important;
+}
+.pin-strike {
+  background-color: #ef4444 !important;
+}
+
+.strike-text {
+  text-decoration: line-through;
+  color: #ef4444;
+}
+.replacement-text {
+  color: #22c55e;
+  font-weight: 600;
+}
+
+#popup-replacement-input {
+  width: 100%;
+  box-sizing: border-box;
+  background: var(--bg-primary);
+  border: 1px solid var(--border);
+  color: var(--text-main);
+  padding: 6px;
+  border-radius: 4px;
+  font-size: 12px;
+}
+#popup-replacement-input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.note-mode .selection-overlay {
+  cursor: copy !important;
 }

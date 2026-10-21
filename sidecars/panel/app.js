@@ -47,9 +47,10 @@ const pagesContainer = document.getElementById('pages-container');
 const emptyState = document.getElementById('empty-state');
 const viewerContainer = document.getElementById('viewer-container');
 const modeTextBtn = document.getElementById('mode-text-btn');
+const modeStrikeBtn = document.getElementById('mode-strike-btn');
+const modeNoteBtn = document.getElementById('mode-note-btn');
 const modeAreaBtn = document.getElementById('mode-area-btn');
 const commentsToggleBtn = document.getElementById('comments-toggle-btn');
-const closeDrawerBtn = document.getElementById('close-drawer-btn');
 
 window.getWorkspaceUri = async function () {
   if (cachedWorkspaceUri) return cachedWorkspaceUri;
@@ -111,20 +112,30 @@ async function loadPdfList() {
   if (isLoadingList) return;
   isLoadingList = true;
   try {
-    pdfSelect.innerHTML = '<option value="">Scanning...</option>';
+    if (pdfSelect.children.length === 0) {
+      pdfSelect.innerHTML = '<option value="">Scanning...</option>';
+    }
     const data = await window.apiRequest('/api/list');
     if (!data?.pdfs?.length) {
       pdfSelect.innerHTML = '<option value="">No PDFs found</option>';
       return showEmpty();
     }
 
-    pdfSelect.innerHTML = '';
-    data.pdfs.forEach((pdf) => {
-      const opt = document.createElement('option');
-      opt.value = pdf.path;
-      opt.textContent = `${pdf.relPath || pdf.name} (${(pdf.size / 1024).toFixed(0)} KB)`;
-      pdfSelect.appendChild(opt);
-    });
+    const existingPaths = Array.from(pdfSelect.options).map((o) => o.value).filter(Boolean);
+    const newPaths = data.pdfs.map((p) => p.path);
+
+    const isSameList = existingPaths.length === newPaths.length &&
+      existingPaths.every((val, idx) => val === newPaths[idx]);
+
+    if (!isSameList) {
+      pdfSelect.innerHTML = '';
+      data.pdfs.forEach((pdf) => {
+        const opt = document.createElement('option');
+        opt.value = pdf.path;
+        opt.textContent = `${pdf.relPath || pdf.name} (${(pdf.size / 1024).toFixed(0)} KB)`;
+        pdfSelect.appendChild(opt);
+      });
+    }
 
     if (!window.appState.currentTarget || !data.pdfs.some((p) => p.path === window.appState.currentTarget)) {
       window.appState.currentTarget = data.pdfs[0].path;
@@ -216,7 +227,12 @@ async function renderAllPages() {
     canvas.height = viewport.height;
     canvas.width = viewport.width;
 
-    const renderTask = page.render({ canvasContext: canvas.getContext('2d'), viewport });
+    const annotationMode = window.pdfjsLib?.AnnotationMode?.DISABLE ?? 0;
+    const renderTask = page.render({
+      canvasContext: canvas.getContext('2d'),
+      viewport,
+      annotationMode,
+    });
     renderCoordinator.addTask(renderTask);
 
     try {
@@ -265,19 +281,19 @@ function showEmpty() {
   pagesContainer.innerHTML = '';
 }
 
-modeTextBtn.addEventListener('click', () => {
-  window.appState.currentMode = 'text';
-  modeTextBtn.classList.add('active');
-  modeAreaBtn.classList.remove('active');
-  viewerContainer.classList.remove('snip-mode');
-});
+function setMode(mode) {
+  window.appState.currentMode = mode;
+  [modeTextBtn, modeStrikeBtn, modeNoteBtn, modeAreaBtn].forEach((btn) => {
+    if (btn) btn.classList.toggle('active', btn.id === `mode-${mode}-btn`);
+  });
+  viewerContainer.classList.toggle('snip-mode', mode === 'area');
+  viewerContainer.classList.toggle('note-mode', mode === 'note');
+}
 
-modeAreaBtn.addEventListener('click', () => {
-  window.appState.currentMode = 'area';
-  modeAreaBtn.classList.add('active');
-  modeTextBtn.classList.remove('active');
-  viewerContainer.classList.add('snip-mode');
-});
+if (modeTextBtn) modeTextBtn.addEventListener('click', () => setMode('text'));
+if (modeStrikeBtn) modeStrikeBtn.addEventListener('click', () => setMode('strike'));
+if (modeNoteBtn) modeNoteBtn.addEventListener('click', () => setMode('note'));
+if (modeAreaBtn) modeAreaBtn.addEventListener('click', () => setMode('area'));
 
 pdfSelect.addEventListener('change', async (e) => {
   window.appState.currentTarget = e.target.value;
@@ -286,17 +302,14 @@ pdfSelect.addEventListener('change', async (e) => {
   await loadAndRenderPdf(window.appState.currentTarget);
 });
 
-commentsToggleBtn.addEventListener('click', () => commentsDrawer.classList.toggle('open'));
-closeDrawerBtn.addEventListener('click', () => commentsDrawer.classList.remove('open'));
+if (commentsToggleBtn) {
+  commentsToggleBtn.addEventListener('click', () => {
+    if (typeof window.toggleShowAllComments === 'function') window.toggleShowAllComments();
+  });
+}
 
-refreshBtn.addEventListener('click', async () => {
-  window.appState.lastMtime = null;
-  currentPdfDoc = null;
-  const target = window.appState.currentTarget;
-  await loadPdfList();
-  if (target && window.appState.currentTarget === target) {
-    await loadAndRenderPdf(target);
-  }
+refreshBtn.addEventListener('click', () => {
+  window.location.reload();
 });
 
 async function checkLiveUpdate() {
@@ -327,9 +340,7 @@ zoomOutBtn.addEventListener('click', async () => {
 window.addEventListener('resize', () => {
   if (!isFitWidth || !currentPdfDoc) return;
   clearTimeout(resizeDebounceTimer);
-  resizeDebounceTimer = setTimeout(() => {
-    renderAllPages();
-  }, 100);
+  resizeDebounceTimer = setTimeout(renderAllPages, 100);
 });
 
 loadPdfList();

@@ -24,7 +24,7 @@ export const TOOLS = [
   },
   {
     name: 'mcp_pdf_annotations_add',
-    description: 'Embed a native ISO 32000 annotation into a PDF document.',
+    description: 'Embed a native ISO 32000 annotation or review comment into a PDF document. Used by LLMs and reviewers to attach feedback, notes, highlights, or area annotations to specific pages or text snippets.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -37,18 +37,26 @@ export const TOOLS = [
           minimum: 1,
           description: '1-based page number where the annotation will be placed.',
         },
-        type: {
-          type: 'string',
-          enum: ['text', 'area'],
-          description: 'Annotation type: "text" (highlight) or "area" (bounding box).',
-        },
         comment: {
           type: 'string',
-          description: 'Annotation comment content text.',
+          description: 'Annotation or review comment content text.',
+        },
+        type: {
+          type: 'string',
+          enum: ['note', 'text', 'area', 'strike'],
+          description: 'Annotation type: "note" (sticky note comment), "text" (highlight), "area" (bounding box), or "strike" (strikethrough & replace).',
+        },
+        replacement: {
+          type: 'string',
+          description: 'Optional proposed replacement text when type is "strike".',
+        },
+        author: {
+          type: 'string',
+          description: 'Optional name of the comment author (e.g. "AI Reviewer", "Gemini", "Antigravity").',
         },
         selectedText: {
           type: 'string',
-          description: 'Optional text snippet in the PDF document being annotated.',
+          description: 'Optional text snippet in the PDF document being annotated or cited.',
         },
         imageB64: {
           type: 'string',
@@ -56,7 +64,7 @@ export const TOOLS = [
         },
         rect: {
           type: 'object',
-          description: 'Optional bounding box {xRatio, yRatio, wRatio, hRatio} for area annotations.',
+          description: 'Optional bounding box {xRatio, yRatio, wRatio, hRatio} for area or note position. Auto-positioned in margin if omitted.',
         },
         textRects: {
           type: 'array',
@@ -67,7 +75,37 @@ export const TOOLS = [
           description: 'Optional unique identifier for the annotation.',
         },
       },
-      required: ['pdfPath', 'page', 'type', 'comment'],
+      required: ['pdfPath', 'page', 'comment'],
+    },
+  },
+  {
+    name: 'mcp_pdf_annotations_modify',
+    description: 'Modify an existing annotation or review comment in a target PDF document (e.g. updating comment text, author, or status).',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        pdfPath: {
+          type: 'string',
+          description: 'Absolute path to the target PDF file.',
+        },
+        commentId: {
+          type: 'string',
+          description: 'Unique ID of the annotation to modify.',
+        },
+        comment: {
+          type: 'string',
+          description: 'Optional updated comment text content.',
+        },
+        author: {
+          type: 'string',
+          description: 'Optional updated author name.',
+        },
+        status: {
+          type: 'string',
+          description: 'Optional updated status (e.g. "open", "resolved").',
+        },
+      },
+      required: ['pdfPath', 'commentId'],
     },
   },
   {
