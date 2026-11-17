@@ -23,21 +23,25 @@
 
 ## 🚀 Features
 
-### 🤖 1. Agent Capabilities: Full CRUD on PDF Comments
-PDF Reviewer bridges compiled documents and autonomous AI pair programmers by giving Antigravity native Model Context Protocol (MCP) tools to operate directly on PDF comments:
+### 🤖 1. Agent Capabilities: Full CRUD on PDF Comments & Markups
+PDF Reviewer bridges compiled documents and autonomous AI pair programmers by giving Antigravity native Model Context Protocol (MCP) tools to operate directly on PDF comments and text markups:
 
-* 📖 **Read Comments (`mcp_pdf_annotations_list`)**: Antigravity inspects user feedback, extracting highlighted phrases, sticky notes, and diagram coordinates across the entire document or on a specific page.
-* ✍️ **Write Comments (`mcp_pdf_annotations_add`)**: Antigravity programmatically embeds native ISO 32000 annotations into the PDF—attaching review notes, citations, proposed replacements (`strike`), or bounding boxes (`area`).
-* ✏️ **Modify Comments (`mcp_pdf_annotations_modify`)**: Antigravity updates existing comment text, changes status (e.g. marking comments as `resolved`), or appends clarification replies without altering document geometry.
-* 🗑️ **Delete Comments (`mcp_pdf_annotations_delete` & `clear`)**: Antigravity purges resolved review comments by ID once underlying code/LaTeX has been fixed, or clears all annotations upon final approval.
+* 📖 **Read Annotations (`mcp_pdf_annotations_list`)**: Antigravity inspects user feedback, highlights (`/Highlight`), underlines (`/Underline`, `/Squiggly`), strikethroughs (`/StrikeOut`), sticky notes, and diagram coordinates across the entire document or filtered by page and type.
+* ✍️ **Write Annotations (`mcp_pdf_annotations_add`)**: Antigravity programmatically embeds native ISO 32000 highlights, underlines, strikethroughs (`strikethrough` / `strike`), review notes (`note`), or bounding boxes (`area`) into the PDF—with optional notes or replacement suggestions.
+* ✏️ **Modify Annotations (`mcp_pdf_annotations_modify`)**: Antigravity updates existing comment text (or clears notes on markups), switches markup styles (`highlight`, `underline`, `strikethrough`), updates replacement text or geometry, and changes status (e.g. `resolved`).
+* 🗑️ **Delete Annotations (`mcp_pdf_annotations_delete` & `clear`)**: Antigravity purges resolved review comments or markups by ID, or clears all (or type-filtered) annotations upon final approval.
 
 ### 🖥️ 2. Interactive Sidecar UI: Sidebar Viewing & Commenting
 An embedded, lightweight viewer rendered directly inside the Antigravity 2.0 auxiliary side panel (`SIDECAR_UI_ENTRYPOINT_AUX_PANE`):
 
 * **Instant Hot-Reload**: Automatically detects workspace file changes (e.g. from `pdflatex`, `typst watch`, or `marp`) and refreshes seamlessly without losing your current zoom or scroll position.
-* **View & Add Comments in the Sidebar**:
-  * 🔤 **Text Mode**: Highlight any text span on the page to attach an inline comment.
-  * ✂️ **Snip Mode**: Marquee-box diagrams, math equations, or charts to attach targeted visual feedback.
+* **View, Add & Remove Markups/Comments in the Sidebar**:
+  * 🔤 **Text Mode**: Select any text span on the page to attach an inline highlight comment.
+  * 🖍️ **Highlight Mode**: Select text to immediately embed a native PDF `/Highlight` markup (click to add/edit a note, switch markup style, or delete).
+  * **<u>U</u> Underline Mode**: Select text to immediately embed a native PDF `/Underline` markup.
+  * **<s>S</s> Strike Mode**: Select text to immediately embed a native PDF `/StrikeOut` markup.
+  * 📌 **Note & ✂️ Snip Modes**: Drop sticky notes or marquee-box diagrams, math equations, or charts.
+* **Inline Popover Controls & History**: Click any highlight, underline, strikethrough, or note to edit its note, switch markup type (`H` / `U` / `S`), or delete it (`🗑️`), with full Undo/Redo (`Ctrl+Z` / `Ctrl+Y`) history.
 * **Comments Drawer & Controls**: Slide-out drawer with a complete list of annotations, status badges, and full Undo/Redo (`Ctrl+Z` / `Ctrl+Y`) history.
 * **Multi-Document Scanner**: Automatically finds PDF documents across project workspaces (root, `build/`, `output/`) with a one-click dropdown switcher.
 * **Zero Heavy Dependencies**: Built purely with `pdf-lib` for robust vector PDF manipulation and Node.js standard libraries for stdio JSON-RPC.
@@ -90,11 +94,11 @@ The plugin registers a local stdio MCP server exposing 5 core tools to the agent
 
 | MCP Tool | Operation | Description | Key Arguments |
 | :--- | :--- | :--- | :--- |
-| **`mcp_pdf_annotations_list`** | **Read** | Extract all ISO 32000 annotations (`/Highlight`, `/Text`, `/Square`, `/Stamp`, etc.) | `{ pdfPath: string, page?: number }` |
-| **`mcp_pdf_annotations_add`** | **Write** | Programmatically embed an annotation, note, or area box into the PDF | `{ pdfPath, page, type, comment, selectedText?, rect? }` |
-| **`mcp_pdf_annotations_modify`** | **Modify** | Update existing comment content, author, or status (e.g. `resolved`) | `{ pdfPath: string, commentId: string, comment?, status? }` |
-| **`mcp_pdf_annotations_delete`** | **Delete** | Remove a specific resolved annotation by ID | `{ pdfPath: string, commentId: string }` |
-| **`mcp_pdf_annotations_clear`** | **Delete All** | Clear all annotations from a target PDF once addressed | `{ pdfPath: string }` |
+| **`mcp_pdf_annotations_list`** | **Read** | Extract all ISO 32000 annotations & markups (`/Highlight`, `/Underline`, `/StrikeOut`, `/Text`, `/Square`, etc.) | `{ pdfPath: string, page?: number, type?: string }` |
+| **`mcp_pdf_annotations_add`** | **Write** | Programmatically embed a highlight, underline, strikethrough, note, or area box into the PDF | `{ pdfPath, page, type, comment?, selectedText?, rect?, textRects? }` |
+| **`mcp_pdf_annotations_modify`** | **Modify** | Update existing comment text, markup type, replacement, geometry, author, or status | `{ pdfPath: string, commentId: string, comment?, type?, status? }` |
+| **`mcp_pdf_annotations_delete`** | **Delete** | Remove a specific annotation or markup by ID | `{ pdfPath: string, commentId: string }` |
+| **`mcp_pdf_annotations_clear`** | **Delete All** | Clear all annotations (or only a specific `type`) from a target PDF | `{ pdfPath: string, type?: string }` |
 
 ### 3. Terminal CLI Fallback
 You can also run headless annotation management straight from your terminal:

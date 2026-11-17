@@ -65,6 +65,7 @@
 
 /* Comment bubbles on text highlights and area boxes are hidden by default, visible on hover */
 .pdf-text-highlight > .pdf-comment-pin,
+.pdf-text-underline > .pdf-comment-pin,
 .pdf-text-strike > .pdf-comment-pin,
 .pdf-comment-box > .pdf-comment-pin {
   opacity: 0;
@@ -75,6 +76,8 @@
 
 .pdf-text-highlight:hover > .pdf-comment-pin,
 .pdf-text-highlight.highlight > .pdf-comment-pin,
+.pdf-text-underline:hover > .pdf-comment-pin,
+.pdf-text-underline.highlight > .pdf-comment-pin,
 .pdf-text-strike:hover > .pdf-comment-pin,
 .pdf-text-strike.highlight > .pdf-comment-pin,
 .pdf-comment-box:hover > .pdf-comment-pin,
@@ -89,6 +92,7 @@
 
 /* Text highlights and area boxes stay beneath pins */
 .pdf-text-highlight,
+.pdf-text-underline,
 .pdf-text-strike,
 .pdf-comment-box {
   z-index: 10;
@@ -96,6 +100,8 @@
 
 .pdf-text-highlight:hover,
 .pdf-text-highlight.highlight,
+.pdf-text-underline:hover,
+.pdf-text-underline.highlight,
 .pdf-text-strike:hover,
 .pdf-text-strike.highlight,
 .pdf-comment-box:hover,
@@ -105,6 +111,7 @@
 
 /* Active popovers elevate pins to topmost plane */
 .pdf-text-highlight.pin-parent-active,
+.pdf-text-underline.pin-parent-active,
 .pdf-text-strike.pin-parent-active,
 .pdf-comment-box.pin-parent-active {
   z-index: 99999 !important;
@@ -567,4 +574,63 @@ body.show-all-comments .pdf-comment-pin {
 
 .note-mode .selection-overlay {
   cursor: copy !important;
+}
+
+/* Underline Markup & Popover Type Switcher Styles */
+.pdf-text-underline {
+  position: absolute;
+  background-color: rgba(16, 185, 129, 0.08);
+  border-bottom: 2px solid #10b981;
+  border-radius: 1px;
+  cursor: pointer;
+  pointer-events: auto;
+  transition: background-color 0.15s ease;
+  z-index: 10;
+}
+.pdf-text-underline:hover, .pdf-text-underline.highlight {
+  background-color: rgba(16, 185, 129, 0.28);
+}
+
+.pin-comment-placeholder {
+  color: var(--text-dim);
+  font-style: italic;
+}
+
+.pin-replacement-row {
+  font-size: 10px;
+  color: var(--text-dim);
+  margin-bottom: 3px;
+}
+
+.pin-type-switcher {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  margin-right: 2px;
+}
+
+.pin-type-btn {
+  width: 17px;
+  height: 17px;
+  padding: 0;
+  border-radius: 3px;
+  border: 1px solid var(--border);
+  background: var(--bg-tertiary);
+  color: var(--text-dim);
+  font-size: 9px;
+  font-weight: 700;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+.pin-type-btn:hover {
+  background: var(--bg-hover);
+  color: #fff;
+}
+.pin-type-btn.active {
+  background: var(--accent);
+  border-color: var(--accent-hover);
+  color: #fff;
 }

@@ -3,6 +3,12 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { TOOLS } from './tool_schemas.mjs';
 import {
+  ALLOWED_ANNOTATION_TYPES,
+  MARKUP_ANNOTATION_TYPES,
+  validateRatioRect,
+  validateTextRects,
+} from '../sidecars/panel/annotation_geometry.mjs';
+import {
   addPdfComment,
   clearPdfComments,
   deletePdfComment,
@@ -15,6 +21,7 @@ const PROTOCOL_VERSION = '2024-11-05';
 /**
  * Sends a single JSON-RPC response or notification to stdout.
  * @param {Record<string, unknown>} payload
+ * @returns {void}
  */
 function sendLine(payload) {
   process.stdout.write(JSON.stringify(payload) + '\n');
@@ -30,39 +37,82 @@ export async function executeToolCall(name, args = {}) {
   if (!name || typeof name !== 'string') {
     throw new Error('CRITICAL: Tool name must be a non-empty string');
   }
-  if (!args || typeof args !== 'object') {
+  if (!args || typeof args !== 'object' || Array.isArray(args)) {
     throw new Error('CRITICAL: Tool arguments must be an object');
   }
 
   const normalized = name.replace(/^mcp_/, '').replace(/^pdf_annotations_/, '');
 
   if (normalized === 'list') {
-    const { pdfPath, page } = args;
+    const { pdfPath, page, type } = args;
     if (!pdfPath || typeof pdfPath !== 'string') {
       throw new Error("CRITICAL: 'pdfPath' is required and must be a string");
     }
     const parsedPage = page !== undefined && page !== null ? Number(page) : undefined;
-    const comments = await listPdfComments(pdfPath, parsedPage);
+    if (type !== undefined && type !== null && (typeof type !== 'string' || !ALLOWED_ANNOTATION_TYPES.includes(type))) {
+      throw new Error(`CRITICAL: 'type' must be one of: ${ALLOWED_ANNOTATION_TYPES.join(', ')}`);
+    }
+    const options = type !== undefined && type !== null ? { type } : {};
+    const comments = await listPdfComments(pdfPath, parsedPage, options);
     return JSON.stringify(comments, null, 2);
   }
 
   if (normalized === 'add') {
-    const { pdfPath, page, type = 'note', author, comment, selectedText, imageB64, rect, textRects, id } = args;
+    const {
+      pdfPath,
+      page,
+      type = 'note',
+      author,
+      comment,
+      selectedText,
+      replacement,
+      imageB64,
+      rect,
+      textRects,
+      id,
+    } = args;
     if (!pdfPath || typeof pdfPath !== 'string') {
       throw new Error("CRITICAL: 'pdfPath' is required and must be a string");
     }
-    if (page === undefined || page === null || typeof page !== 'number' || page < 1) {
+    if (page === undefined || page === null || typeof page !== 'number' || !Number.isInteger(page) || page < 1) {
       throw new Error("CRITICAL: 'page' is required and must be a positive integer");
     }
     const resolvedType = type || 'note';
-    if (typeof resolvedType !== 'string' || !['note', 'text', 'area'].includes(resolvedType)) {
-      throw new Error("CRITICAL: 'type' must be 'note', 'text', or 'area'");
+    if (typeof resolvedType !== 'string' || !ALLOWED_ANNOTATION_TYPES.includes(resolvedType)) {
+      throw new Error(`CRITICAL: 'type' must be one of: ${ALLOWED_ANNOTATION_TYPES.join(', ')}`);
     }
-    if (!comment || typeof comment !== 'string' || !comment.trim()) {
+    const isMarkup = MARKUP_ANNOTATION_TYPES.has(resolvedType);
+    if (isMarkup) {
+      if (comment !== undefined && comment !== null && typeof comment !== 'string') {
+        throw new Error("CRITICAL: 'comment' must be a string if provided");
+      }
+    } else if (!comment || typeof comment !== 'string' || !comment.trim()) {
       throw new Error("CRITICAL: 'comment' is required and must be a non-empty string");
     }
     if (author !== undefined && author !== null && (typeof author !== 'string' || !author.trim())) {
       throw new Error("CRITICAL: 'author' must be a non-empty string if provided");
+    }
+    if (replacement !== undefined && replacement !== null && typeof replacement !== 'string') {
+      throw new Error("CRITICAL: 'replacement' must be a string if provided");
+    }
+    if (selectedText !== undefined && selectedText !== null && typeof selectedText !== 'string') {
+      throw new Error("CRITICAL: 'selectedText' must be a string if provided");
+    }
+    if (rect !== undefined && rect !== null) {
+      validateRatioRect(rect);
+    }
+    if (textRects !== undefined && textRects !== null) {
+      validateTextRects(textRects);
+    }
+    const trimmedComment = typeof comment === 'string' ? comment.trim() : '';
+    if (isMarkup) {
+      const hasTarget = (Array.isArray(textRects) && textRects.length > 0)
+        || (rect !== undefined && rect !== null)
+        || (typeof selectedText === 'string' && selectedText.trim().length > 0)
+        || trimmedComment.length > 0;
+      if (!hasTarget) {
+        throw new Error("CRITICAL: Markup annotation requires at least one of 'textRects', 'rect', 'selectedText', or 'comment'");
+      }
     }
 
     const res = await addPdfComment(pdfPath, {
@@ -70,7 +120,8 @@ export async function executeToolCall(name, args = {}) {
       type: resolvedType,
       author: (author && author.trim()) || 'AI Reviewer',
       page,
-      comment: comment.trim(),
+      comment: trimmedComment,
+      replacement: replacement !== undefined && replacement !== null ? replacement : null,
       selectedText: selectedText || null,
       imageB64: imageB64 || null,
       rect: rect || null,
@@ -80,7 +131,19 @@ export async function executeToolCall(name, args = {}) {
   }
 
   if (normalized === 'modify' || normalized === 'update') {
-    const { pdfPath, commentId, id, comment, author, status } = args;
+    const {
+      pdfPath,
+      commentId,
+      id,
+      comment,
+      author,
+      status,
+      type,
+      replacement,
+      selectedText,
+      rect,
+      textRects,
+    } = args;
     if (!pdfPath || typeof pdfPath !== 'string') {
       throw new Error("CRITICAL: 'pdfPath' is required and must be a string");
     }
@@ -88,11 +151,25 @@ export async function executeToolCall(name, args = {}) {
     if (!targetId || typeof targetId !== 'string') {
       throw new Error("CRITICAL: 'commentId' is required and must be a non-empty string");
     }
-    if (comment === undefined && author === undefined && status === undefined) {
-      throw new Error("CRITICAL: At least one of 'comment', 'author', or 'status' must be provided to modify");
+    if (
+      comment === undefined &&
+      author === undefined &&
+      status === undefined &&
+      type === undefined &&
+      replacement === undefined &&
+      selectedText === undefined &&
+      rect === undefined &&
+      textRects === undefined
+    ) {
+      throw new Error(
+        "CRITICAL: At least one of 'comment', 'author', or 'status' must be provided to modify (or markup fields 'type', 'replacement', 'selectedText', 'rect', 'textRects')"
+      );
     }
-    if (comment !== undefined && (typeof comment !== 'string' || !comment.trim())) {
+    if (comment !== undefined && comment !== null && (typeof comment !== 'string' || !comment.trim())) {
       throw new Error("CRITICAL: 'comment' must be a non-empty string if provided");
+    }
+    if (type !== undefined && (typeof type !== 'string' || !ALLOWED_ANNOTATION_TYPES.includes(type))) {
+      throw new Error(`CRITICAL: 'type' must be one of: ${ALLOWED_ANNOTATION_TYPES.join(', ')}`);
     }
     if (author !== undefined && (typeof author !== 'string' || !author.trim())) {
       throw new Error("CRITICAL: 'author' must be a non-empty string if provided");
@@ -100,11 +177,28 @@ export async function executeToolCall(name, args = {}) {
     if (status !== undefined && (typeof status !== 'string' || !status.trim())) {
       throw new Error("CRITICAL: 'status' must be a non-empty string if provided");
     }
+    if (replacement !== undefined && replacement !== null && typeof replacement !== 'string') {
+      throw new Error("CRITICAL: 'replacement' must be a string or null if provided");
+    }
+    if (selectedText !== undefined && selectedText !== null && typeof selectedText !== 'string') {
+      throw new Error("CRITICAL: 'selectedText' must be a string or null if provided");
+    }
+    if (rect !== undefined && rect !== null) {
+      validateRatioRect(rect);
+    }
+    if (textRects !== undefined && textRects !== null) {
+      validateTextRects(textRects);
+    }
 
     const updates = {};
-    if (comment !== undefined) updates.comment = comment.trim();
+    if (comment !== undefined) updates.comment = comment === null ? null : comment.trim();
     if (author !== undefined) updates.author = author.trim();
     if (status !== undefined) updates.status = status.trim();
+    if (type !== undefined) updates.type = type;
+    if (replacement !== undefined) updates.replacement = replacement;
+    if (selectedText !== undefined) updates.selectedText = selectedText;
+    if (rect !== undefined) updates.rect = rect;
+    if (textRects !== undefined) updates.textRects = textRects;
 
     const res = await modifyPdfComment(pdfPath, targetId, updates);
     return JSON.stringify(res, null, 2);
@@ -125,12 +219,16 @@ export async function executeToolCall(name, args = {}) {
   }
 
   if (normalized === 'clear') {
-    const { pdfPath } = args;
+    const { pdfPath, type } = args;
     if (!pdfPath || typeof pdfPath !== 'string') {
       throw new Error("CRITICAL: 'pdfPath' is required and must be a string");
     }
+    if (type !== undefined && type !== null && (typeof type !== 'string' || !ALLOWED_ANNOTATION_TYPES.includes(type))) {
+      throw new Error(`CRITICAL: 'type' must be one of: ${ALLOWED_ANNOTATION_TYPES.join(', ')}`);
+    }
 
-    const res = await clearPdfComments(pdfPath);
+    const options = type !== undefined && type !== null ? { type } : {};
+    const res = await clearPdfComments(pdfPath, options);
     return JSON.stringify(res, null, 2);
   }
 
@@ -141,6 +239,7 @@ export async function executeToolCall(name, args = {}) {
  * Handles incoming JSON-RPC 2.0 messages.
  * @param {Record<string, unknown>} msg
  * @param {(res: Record<string, unknown>) => void} [customSender]
+ * @returns {Promise<void>}
  */
 export async function handleMessage(msg, customSender = sendLine) {
   if (!msg || typeof msg !== 'object') {

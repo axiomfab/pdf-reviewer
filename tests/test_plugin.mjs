@@ -350,7 +350,7 @@ await assert.rejects(
       comment: 'This should fail',
     });
   },
-  /CRITICAL: 'type' must be 'note', 'text', or 'area'/,
+  /CRITICAL: 'type' must be one of: note, text, area, highlight, underline, strikethrough, strike/,
   'Expected validation error for invalid type'
 );
 console.log('✅ PASS: Failure Path 8: Invalid comment type rejected');
@@ -495,7 +495,7 @@ await assert.rejects(
       comment: 'Test comment',
     });
   },
-  /CRITICAL: type must be one of: note, text, area, strike/,
+  /CRITICAL: type must be one of: note, text, area, highlight, underline, strikethrough, strike/,
   'Expected validation error for unsupported comment type'
 );
 console.log('✅ PASS: Failure Path 14: Unsupported comment type rejected');
@@ -535,7 +535,14 @@ export function resolveToolbarLayoutState(width, html, css) {
   }
 
   const centerContent = header.substring(centerIdx, rightIdx);
-  const commentTools = ['mode-text-btn', 'mode-strike-btn', 'mode-note-btn', 'mode-area-btn'];
+  const commentTools = [
+    'mode-text-btn',
+    'mode-highlight-btn',
+    'mode-underline-btn',
+    'mode-strike-btn',
+    'mode-note-btn',
+    'mode-area-btn',
+  ];
   for (const toolId of commentTools) {
     if (!centerContent.includes(`id="${toolId}"`)) {
       throw new Error(`CRITICAL: Missing comment mode tool ${toolId} in .header-center`);
@@ -1218,6 +1225,8 @@ assert.throws(
   'Expected validation error for null overlay in createPopover'
 );
 console.log('✅ PASS: Failure Path 36: validateCreatePopoverArgs rejects null comment or overlay');
+
+await import('./test_markup_annotations.mjs');
 
 // Clean up test scratch fixture
 import { rmSync, unlinkSync } from 'node:fs';

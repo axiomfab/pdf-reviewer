@@ -47,6 +47,8 @@ const pagesContainer = document.getElementById('pages-container');
 const emptyState = document.getElementById('empty-state');
 const viewerContainer = document.getElementById('viewer-container');
 const modeTextBtn = document.getElementById('mode-text-btn');
+const modeHighlightBtn = document.getElementById('mode-highlight-btn');
+const modeUnderlineBtn = document.getElementById('mode-underline-btn');
 const modeStrikeBtn = document.getElementById('mode-strike-btn');
 const modeNoteBtn = document.getElementById('mode-note-btn');
 const modeAreaBtn = document.getElementById('mode-area-btn');
@@ -281,17 +283,27 @@ function showEmpty() {
   pagesContainer.innerHTML = '';
 }
 
+/**
+ * Switches the active PDF annotation or markup interaction mode.
+ * @param {string} mode
+ * @returns {void}
+ */
 function setMode(mode) {
-  window.appState.currentMode = mode;
-  [modeTextBtn, modeStrikeBtn, modeNoteBtn, modeAreaBtn].forEach((btn) => {
-    if (btn) btn.classList.toggle('active', btn.id === `mode-${mode}-btn`);
+  const normalizedMode = mode === 'strike' ? 'strikethrough' : mode;
+  window.appState.currentMode = normalizedMode;
+  const activeBtnId = normalizedMode === 'strikethrough' ? 'mode-strike-btn' : `mode-${normalizedMode}-btn`;
+  [modeTextBtn, modeHighlightBtn, modeUnderlineBtn, modeStrikeBtn, modeNoteBtn, modeAreaBtn].forEach((btn) => {
+    if (btn) btn.classList.toggle('active', btn.id === activeBtnId);
   });
-  viewerContainer.classList.toggle('snip-mode', mode === 'area');
-  viewerContainer.classList.toggle('note-mode', mode === 'note');
+  viewerContainer.classList.toggle('snip-mode', normalizedMode === 'area');
+  viewerContainer.classList.toggle('note-mode', normalizedMode === 'note');
 }
+window.setMode = setMode;
 
 if (modeTextBtn) modeTextBtn.addEventListener('click', () => setMode('text'));
-if (modeStrikeBtn) modeStrikeBtn.addEventListener('click', () => setMode('strike'));
+if (modeHighlightBtn) modeHighlightBtn.addEventListener('click', () => setMode('highlight'));
+if (modeUnderlineBtn) modeUnderlineBtn.addEventListener('click', () => setMode('underline'));
+if (modeStrikeBtn) modeStrikeBtn.addEventListener('click', () => setMode('strikethrough'));
 if (modeNoteBtn) modeNoteBtn.addEventListener('click', () => setMode('note'));
 if (modeAreaBtn) modeAreaBtn.addEventListener('click', () => setMode('area'));
 

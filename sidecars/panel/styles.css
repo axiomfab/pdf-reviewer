@@ -89,15 +89,18 @@ select {
   background: var(--bg-tertiary);
   border: 1px solid var(--border);
   border-radius: 4px;
-  overflow: hidden;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
 }
+.mode-switch::-webkit-scrollbar { display: none; }
 
 .mode-btn {
-  flex: 1;
+  flex: 1 0 auto;
   background: transparent;
   color: var(--text-dim);
   border: none;
-  padding: 4px 4px;
+  padding: 4px 5px;
   font-size: 11px;
   cursor: pointer;
   border-radius: 0;
@@ -140,7 +143,7 @@ select {
   .header-center { order: 2; width: auto; flex: 0 1 auto; }
   .header-right { order: 3; margin-left: 0; }
   .mode-switch { width: auto; }
-  .mode-btn { flex: initial; padding: 3px 8px; }
+  .mode-btn { flex: initial; padding: 3px 6px; }
 }
 
 @container (min-width: 540px) {
@@ -149,7 +152,7 @@ select {
   .header-center { order: 2; width: auto; flex: 0 1 auto; }
   .header-right { order: 3; margin-left: 0; }
   .mode-switch { width: auto; }
-  .mode-btn { flex: initial; padding: 3px 8px; }
+  .mode-btn { flex: initial; padding: 3px 6px; }
 }
 
 button {
