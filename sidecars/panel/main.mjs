@@ -2,7 +2,6 @@ import { execFileSync } from 'node:child_process';
 import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import { basename, dirname, isAbsolute, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { Response, SidecarApp } from 'sidecar_sdk';
 import {
   addPdfComment,
   clearPdfComments,
@@ -199,6 +198,7 @@ export function resolveTargetPdf(workspaceRoot, requestedPath) {
 
 const isSidecar = Boolean(process.env.ANTIGRAVITY_SIDECAR_WEB_PORT);
 if (isSidecar) {
+  const { Response, SidecarApp } = await import('sidecar_sdk');
   const app = new SidecarApp();
 
   app.page('/', () => new Response(readLocal('index.html'), { contentType: 'text/html', headers: { 'Cache-Control': 'no-cache, no-store' } }));
