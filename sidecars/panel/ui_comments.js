@@ -528,19 +528,40 @@ function createPopover({ comment, index, targetRects, overlay, isAi, isNote }) {
 }
 window.createPopover = createPopover;
 
+function formatCommentsToggleLabel(count, isShowing) {
+  const n = Number.isFinite(Number(count)) ? Math.max(0, Math.floor(Number(count))) : 0;
+  const noun = n === 1 ? 'comment' : 'comments';
+  return isShowing ? `Hide all ${n} ${noun}` : `Show all ${n} ${noun}`;
+}
+window.formatCommentsToggleLabel = formatCommentsToggleLabel;
+
+function updateCommentsToggleA11y() {
+  const count = window.appState?.loadedComments?.length ?? 0;
+  const isShowing = Boolean(window.appState?.showAllBoxes);
+  const countEl = document.getElementById('comments-count') || commentsCount;
+  if (countEl) countEl.textContent = String(count);
+  const toggleBtn = document.getElementById('comments-toggle-btn');
+  if (toggleBtn) {
+    toggleBtn.classList.toggle('active', isShowing);
+    toggleBtn.setAttribute('aria-pressed', isShowing ? 'true' : 'false');
+    toggleBtn.setAttribute('aria-label', formatCommentsToggleLabel(count, isShowing));
+    toggleBtn.title = isShowing ? 'Hide comment boxes (show on hover)' : 'Display all comment boxes on page';
+  }
+}
+window.updateCommentsToggleA11y = updateCommentsToggleA11y;
+
 window.refreshComments = async function () {
   const pdfPath = window.appState.currentTarget;
-  const countEl = document.getElementById('comments-count') || commentsCount;
   if (!pdfPath) {
     window.appState.loadedComments = [];
-    if (countEl) countEl.textContent = '0';
+    updateCommentsToggleA11y();
     window.renderCommentMarkersOnPages();
     return;
   }
   const data = await window.apiRequest(`/api/comments/list?pdfPath=${encodeURIComponent(pdfPath)}`);
   const comments = data?.comments || [];
   window.appState.loadedComments = comments;
-  if (countEl) countEl.textContent = comments.length;
+  updateCommentsToggleA11y();
   window.renderCommentMarkersOnPages();
 };
 
@@ -554,14 +575,7 @@ window.toggleShowAllComments = function (forceState) {
     document.querySelectorAll('.pin-tooltip.box-hidden').forEach((el) => el.classList.remove('box-hidden'));
     document.querySelectorAll('.pin-tooltip').forEach((el) => { if (typeof el._updatePosition === 'function') el._updatePosition(); });
   }
-  const toggleBtn = document.getElementById('comments-toggle-btn');
-  if (toggleBtn) {
-    toggleBtn.classList.toggle('active', isShowing);
-    const count = window.appState.loadedComments?.length ?? 0;
-    const countEl = document.getElementById('comments-count');
-    if (countEl) countEl.textContent = String(count);
-    toggleBtn.title = isShowing ? 'Hide comment boxes (show on hover)' : 'Display all comment boxes on page';
-  }
+  updateCommentsToggleA11y();
   return isShowing;
 };
 

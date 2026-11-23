@@ -139,10 +139,54 @@ function formatShortWorktreeLabel(worktree) {
   return worktree.replace(/^(feat|feature|fix|chore|docs|refactor)\//i, '');
 }
 
-function setPickerOpen(open) {
+function buildPickerTriggerLabel(pdf) {
+  if (!pdf) return 'No PDFs detected in workspace';
+  const { dir, name } = splitDisplayPath(pdf);
+  const fullPath = `${dir}${name}`;
+  return pdf.worktree ? `${fullPath}, git worktree ${pdf.worktree}` : fullPath;
+}
+window.buildPickerTriggerLabel = buildPickerTriggerLabel;
+
+function buildPickerOptionLabel(pdf, sizeKb) {
+  const { dir, name } = splitDisplayPath(pdf);
+  const fullPath = `${dir}${name}`;
+  const sizePart = sizeKb || `${Math.max(1, Math.round((pdf?.size || 0) / 1024))} KB`;
+  return pdf?.worktree
+    ? `${fullPath}, git worktree ${pdf.worktree}, ${sizePart}`
+    : `${fullPath}, ${sizePart}`;
+}
+window.buildPickerOptionLabel = buildPickerOptionLabel;
+
+function getPickerOptions() {
+  return pdfPickerMenu ? Array.from(pdfPickerMenu.querySelectorAll('.pdf-picker-option')) : [];
+}
+
+function focusPickerOption(index) {
+  const options = getPickerOptions();
+  if (!options.length) return;
+  const wrapped = ((index % options.length) + options.length) % options.length;
+  options[wrapped].focus();
+}
+
+function setPickerOpen(open, { returnFocus = false, focusTarget = null } = {}) {
   pickerOpen = Boolean(open);
   if (pdfPickerMenu) pdfPickerMenu.classList.toggle('hidden', !pickerOpen);
   if (pdfPickerTrigger) pdfPickerTrigger.setAttribute('aria-expanded', pickerOpen ? 'true' : 'false');
+  if (pickerOpen && focusTarget) {
+    const options = getPickerOptions();
+    if (options.length) {
+      if (focusTarget === 'first') {
+        options[0].focus();
+      } else if (focusTarget === 'last') {
+        options[options.length - 1].focus();
+      } else if (focusTarget === 'selected') {
+        const selectedIdx = options.findIndex((opt) => opt.getAttribute('aria-selected') === 'true');
+        options[selectedIdx >= 0 ? selectedIdx : 0].focus();
+      }
+    }
+  } else if (!pickerOpen && returnFocus && pdfPickerTrigger) {
+    pdfPickerTrigger.focus();
+  }
 }
 
 function updatePickerTrigger(pdf) {
@@ -151,7 +195,10 @@ function updatePickerTrigger(pdf) {
     pdfPickerFilename.textContent = 'No PDFs found';
     pdfPickerWtBadge.classList.add('hidden');
     pdfPickerWtBadge.title = '';
-    if (pdfPickerTrigger) pdfPickerTrigger.title = 'No PDFs detected in workspace';
+    if (pdfPickerTrigger) {
+      pdfPickerTrigger.title = 'No PDFs detected in workspace';
+      pdfPickerTrigger.setAttribute('aria-label', buildPickerTriggerLabel(null));
+    }
     return;
   }
   const { dir, name } = splitDisplayPath(pdf);
@@ -160,12 +207,18 @@ function updatePickerTrigger(pdf) {
     pdfPickerWtBadge.classList.remove('hidden');
     pdfPickerWtText.textContent = formatShortWorktreeLabel(pdf.worktree);
     pdfPickerWtBadge.title = `Git worktree: ${pdf.worktree}`;
-    if (pdfPickerTrigger) pdfPickerTrigger.title = `${dir}${name} · worktree: ${pdf.worktree}`;
+    if (pdfPickerTrigger) {
+      pdfPickerTrigger.title = `${dir}${name} · worktree: ${pdf.worktree}`;
+      pdfPickerTrigger.setAttribute('aria-label', buildPickerTriggerLabel(pdf));
+    }
   } else {
     pdfPickerWtBadge.classList.add('hidden');
     pdfPickerWtText.textContent = '';
     pdfPickerWtBadge.title = '';
-    if (pdfPickerTrigger) pdfPickerTrigger.title = `${dir}${name}`;
+    if (pdfPickerTrigger) {
+      pdfPickerTrigger.title = `${dir}${name}`;
+      pdfPickerTrigger.setAttribute('aria-label', buildPickerTriggerLabel(pdf));
+    }
   }
 }
 
@@ -186,9 +239,10 @@ function renderPickerMenu() {
     btn.className = `pdf-picker-option${isSelected ? ' selected' : ''}`;
     btn.setAttribute('role', 'option');
     btn.setAttribute('aria-selected', isSelected ? 'true' : 'false');
+    btn.setAttribute('aria-label', buildPickerOptionLabel(pdf, sizeKb));
     btn.title = pdf.worktree ? `${dir}${name} (${pdf.worktree})` : `${dir}${name}`;
     const badgeHtml = pdf.worktree
-      ? `<span class="wt-badge" title="Git worktree: ${esc(pdf.worktree)}">${BRANCH_ICON_SVG}<span class="wt-badge-text">${esc(pdf.worktree)}</span></span>`
+      ? `<span class="wt-badge" title="Git worktree: ${esc(pdf.worktree)}">${BRANCH_ICON_SVG}<span class="sr-only">git worktree </span><span class="wt-badge-text">${esc(pdf.worktree)}</span></span>`
       : '';
     btn.innerHTML = `
       <span class="pdf-option-left">
@@ -199,7 +253,7 @@ function renderPickerMenu() {
       <span class="pdf-option-size">${esc(sizeKb)}</span>
     `;
     btn.addEventListener('click', async () => {
-      setPickerOpen(false);
+      setPickerOpen(false, { returnFocus: true });
       if (pdf.path === window.appState.currentTarget) return;
       window.appState.currentTarget = pdf.path;
       window.appState.lastMtime = null;
@@ -222,6 +276,7 @@ async function loadPdfList() {
   try {
     if (availablePdfs.length === 0 && pdfPickerFilename) {
       pdfPickerFilename.textContent = 'Scanning...';
+      if (pdfPickerTrigger) pdfPickerTrigger.setAttribute('aria-label', 'Scanning for PDFs');
     }
     const wsUriBefore = await window.getWorkspaceUri();
     const data = await window.apiRequest('/api/list');
@@ -408,7 +463,11 @@ function setMode(mode) {
   window.appState.currentMode = normalizedMode;
   const activeBtnId = normalizedMode === 'strikethrough' ? 'mode-strike-btn' : `mode-${normalizedMode}-btn`;
   [modeTextBtn, modeHighlightBtn, modeUnderlineBtn, modeStrikeBtn, modeNoteBtn, modeAreaBtn].forEach((btn) => {
-    if (btn) btn.classList.toggle('active', btn.id === activeBtnId);
+    if (btn) {
+      const isActive = btn.id === activeBtnId;
+      btn.classList.toggle('active', isActive);
+      btn.setAttribute('aria-pressed', isActive ? 'true' : 'false');
+    }
   });
   viewerContainer.classList.toggle('snip-mode', normalizedMode === 'area');
   viewerContainer.classList.toggle('note-mode', normalizedMode === 'note');
@@ -427,6 +486,54 @@ if (pdfPickerTrigger) {
     e.stopPropagation();
     setPickerOpen(!pickerOpen);
   });
+  pdfPickerTrigger.addEventListener('keydown', (e) => {
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      if (!pickerOpen) setPickerOpen(true, { focusTarget: 'selected' });
+      else focusPickerOption(0);
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      if (!pickerOpen) setPickerOpen(true, { focusTarget: 'last' });
+      else focusPickerOption(getPickerOptions().length - 1);
+    } else if (e.key === 'Home' && pickerOpen) {
+      e.preventDefault();
+      focusPickerOption(0);
+    } else if (e.key === 'End' && pickerOpen) {
+      e.preventDefault();
+      focusPickerOption(getPickerOptions().length - 1);
+    } else if (e.key === 'Escape' && pickerOpen) {
+      e.preventDefault();
+      setPickerOpen(false, { returnFocus: true });
+    }
+  });
+}
+
+if (pdfPickerMenu) {
+  pdfPickerMenu.addEventListener('keydown', (e) => {
+    if (!pickerOpen) return;
+    const options = getPickerOptions();
+    if (!options.length && e.key !== 'Escape') return;
+    const currentIdx = options.indexOf(document.activeElement);
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      focusPickerOption(currentIdx === -1 ? 0 : currentIdx + 1);
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      focusPickerOption(currentIdx === -1 ? options.length - 1 : currentIdx - 1);
+    } else if (e.key === 'Home') {
+      e.preventDefault();
+      focusPickerOption(0);
+    } else if (e.key === 'End') {
+      e.preventDefault();
+      focusPickerOption(options.length - 1);
+    } else if (e.key === 'Escape') {
+      e.preventDefault();
+      e.stopPropagation();
+      setPickerOpen(false, { returnFocus: true });
+    } else if (e.key === 'Tab') {
+      setPickerOpen(false);
+    }
+  });
 }
 
 document.addEventListener('click', (e) => {
@@ -437,7 +544,8 @@ document.addEventListener('click', (e) => {
 
 document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape' && pickerOpen) {
-    setPickerOpen(false);
+    e.preventDefault();
+    setPickerOpen(false, { returnFocus: true });
   }
 });
 
