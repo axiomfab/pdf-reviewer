@@ -545,18 +545,47 @@ export async function clearPdfComments(pdfPath, options = {}) {
   return { cleared: comments.length, mtime: statSync(pdfPath).mtimeMs };
 }
 
+/**
+ * Parses CLI modify arguments supporting positional comment text and `--key=value` flags.
+ * @param {string[]} rawArgs
+ * @returns {Record<string, unknown>}
+ */
+export function parseCliModifyArgs(rawArgs) {
+  const updates = {};
+  const positional = [];
+  for (const token of rawArgs) {
+    if (token.startsWith('--') && token.includes('=')) {
+      const eqIdx = token.indexOf('=');
+      const key = token.slice(2, eqIdx).trim();
+      const val = token.slice(eqIdx + 1);
+      if (['status', 'comment', 'author', 'type', 'replacement'].includes(key)) {
+        updates[key] = val;
+      } else {
+        throw new Error(`CRITICAL: Unsupported CLI flag '--${key}'`);
+      }
+    } else {
+      positional.push(token);
+    }
+  }
+  if (positional.length > 0 && updates.comment === undefined) {
+    updates.comment = positional.join(' ');
+  }
+  return updates;
+}
+
 if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
-  const [, , cmd, targetPdf, argId, argComment] = process.argv;
+  const [, , cmd, targetPdf, argId, ...restArgs] = process.argv;
   if (cmd === 'list') {
     listPdfComments(targetPdf).then((res) => console.log(JSON.stringify(res, null, 2)));
   } else if (cmd === 'modify') {
-    modifyPdfComment(targetPdf, argId, { comment: argComment }).then((res) => console.log(JSON.stringify(res, null, 2)));
+    const updates = parseCliModifyArgs(restArgs);
+    modifyPdfComment(targetPdf, argId, updates).then((res) => console.log(JSON.stringify(res, null, 2)));
   } else if (cmd === 'delete') {
     deletePdfComment(targetPdf, argId).then((res) => console.log(JSON.stringify(res, null, 2)));
   } else if (cmd === 'clear') {
     clearPdfComments(targetPdf).then((res) => console.log(JSON.stringify(res, null, 2)));
   } else {
-    console.error('Usage: node pdf_annotations.mjs <list|delete|modify|clear> <pdfPath> [commentId] [newComment]');
+    console.error('Usage: node pdf_annotations.mjs <list|delete|modify|clear> <pdfPath> [commentId] [newComment | --status=... --comment=... --type=...]');
     process.exit(1);
   }
 }

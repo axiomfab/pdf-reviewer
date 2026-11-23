@@ -5,24 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>PDF Reviewer</title>
   <script src="/preload.js"></script>
-  <script>
-    window.reportDebug = function(msg) {
-      console.log('[DEBUG]', msg);
-      try {
-        const fetchFn = (window.sidecar && window.sidecar.fetch) || window.fetch;
-        fetchFn('/api/debug_log', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ message: msg, href: window.location.href, time: new Date().toISOString() })
-        });
-      } catch (e) {}
-    };
-    window.onerror = function(msg, url, line) {
-      window.reportDebug(`ERROR: ${msg} at ${url}:${line}`);
-    };
-  </script>
-  <link rel="stylesheet" href="/styles.css?v=20261117_1">
-  <link rel="stylesheet" href="/comments.css?v=20261117_1">
+  <link rel="stylesheet" href="/styles.css?v=20261123_1">
+  <link rel="stylesheet" href="/comments.css?v=20261123_1">
   <script src="/lib/pdf.min.js"></script>
 </head>
 <body>
@@ -63,7 +47,7 @@
     <main id="viewer-container">
       <div id="empty-state" class="empty-state">
         <h3>No PDF Detected</h3>
-        <p>Compile your LaTeX document (`scripts/build.ps1`) to preview it here.</p>
+        <p>Compile a PDF in your workspace (e.g. via LaTeX, Typst, or Marp) to preview and annotate it here.</p>
       </div>
       <div id="pages-container"></div>
     </main>
@@ -87,6 +71,6 @@
 
   <script src="/ui_history.js?v=20261117_1"></script>
   <script src="/ui_comments.js?v=20261117_1"></script>
-  <script src="/app.js?v=20261117_1"></script>
+  <script src="/app.js?v=20261123_1"></script>
 </body>
 </html>

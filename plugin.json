@@ -2,7 +2,16 @@
   "name": "pdf-reviewer",
   "displayName": "PDF Reviewer & Annotator",
   "version": "1.1.0",
-  "description": "Live PDF reviewer & annotator for Antigravity 2.0 auxiliary side pane with live hot-reloading and MCP annotations suite.",
+  "description": "Live PDF reviewer & annotator for Antigravity 2.0 auxiliary side pane with live hot-reloading, git worktree discovery, and MCP annotations suite.",
+  "author": {
+    "name": "axiomfab",
+    "url": "https://github.com/axiomfab"
+  },
+  "homepage": "https://github.com/axiomfab/pdf-reviewer",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/axiomfab/pdf-reviewer"
+  },
   "logo": "assets/logo.svg",
   "suggestedPrompts": [
     "Open the compiled paper in PDF Reviewer",

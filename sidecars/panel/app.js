@@ -33,9 +33,12 @@ const renderCoordinator = new RenderCoordinator();
 let currentPdfDoc = null;
 let currentScale = 1.0;
 let isFitWidth = true;
-let isRendering = false;
 let isLoadingList = false;
+let pendingListReload = false;
+let listLoadGeneration = 0;
+let loadPdfGeneration = 0;
 let cachedWorkspaceUri = null;
+let workspaceInitialized = false;
 let resizeDebounceTimer = null;
 
 const pdfSelect = document.getElementById('pdf-select');
@@ -55,23 +58,29 @@ const modeAreaBtn = document.getElementById('mode-area-btn');
 const commentsToggleBtn = document.getElementById('comments-toggle-btn');
 
 window.getWorkspaceUri = async function () {
-  if (cachedWorkspaceUri) return cachedWorkspaceUri;
+  if (workspaceInitialized) return cachedWorkspaceUri;
   if (window.sidecar && typeof window.sidecar.getWorkspaceUris === 'function') {
     try {
-      const uris = await Promise.race([
-        window.sidecar.getWorkspaceUris(),
-        new Promise((resolve) => setTimeout(() => resolve(null), 300)),
-      ]);
-      if (uris && uris.length > 0) return (cachedWorkspaceUri = uris[0]);
+      const uris = await window.sidecar.getWorkspaceUris();
+      workspaceInitialized = true;
+      cachedWorkspaceUri = uris && uris.length > 0 ? uris[0] : null;
+      return cachedWorkspaceUri;
     } catch {}
   }
-  return null;
+  return cachedWorkspaceUri;
 };
 
 if (window.sidecar && typeof window.sidecar.onWorkspaceChange === 'function') {
   window.sidecar.onWorkspaceChange((uris) => {
-    if (uris && uris.length > 0 && uris[0] !== cachedWorkspaceUri) {
-      cachedWorkspaceUri = uris[0];
+    const nextUri = uris && uris.length > 0 ? uris[0] : null;
+    const changed = !workspaceInitialized || nextUri !== cachedWorkspaceUri;
+    workspaceInitialized = true;
+    if (changed) {
+      cachedWorkspaceUri = nextUri;
+      window.appState.currentTarget = null;
+      window.appState.lastMtime = null;
+      currentPdfDoc = null;
+      renderCoordinator.startNew();
       loadPdfList();
     }
   });
@@ -105,22 +114,35 @@ window.apiRequest = async function (endpoint, method = 'GET', body = null) {
     return await res.json();
   } catch (err) {
     console.error(`API ${endpoint} error:`, err);
-    if (window.reportDebug) window.reportDebug(`API ${endpoint} error: ${err.message}`);
     return null;
   }
 };
 
 async function loadPdfList() {
-  if (isLoadingList) return;
+  if (isLoadingList) {
+    pendingListReload = true;
+    return;
+  }
   isLoadingList = true;
+  const myGen = ++listLoadGeneration;
   try {
     if (pdfSelect.children.length === 0) {
       pdfSelect.innerHTML = '<option value="">Scanning...</option>';
     }
+    const wsUriBefore = await window.getWorkspaceUri();
     const data = await window.apiRequest('/api/list');
+    if (myGen !== listLoadGeneration || (workspaceInitialized && wsUriBefore !== cachedWorkspaceUri)) {
+      pendingListReload = true;
+      return;
+    }
     if (!data?.pdfs?.length) {
+      window.appState.currentTarget = null;
+      window.appState.lastMtime = null;
+      currentPdfDoc = null;
       pdfSelect.innerHTML = '<option value="">No PDFs found</option>';
-      return showEmpty();
+      showEmpty();
+      await window.refreshComments();
+      return;
     }
 
     const existingPaths = Array.from(pdfSelect.options).map((o) => o.value).filter(Boolean);
@@ -145,25 +167,31 @@ async function loadPdfList() {
       await loadAndRenderPdf(window.appState.currentTarget);
     } else {
       pdfSelect.value = window.appState.currentTarget;
+      await window.refreshComments();
     }
-    await window.refreshComments();
   } catch (err) {
     console.error('loadPdfList error:', err);
-    if (window.reportDebug) window.reportDebug(`loadPdfList error: ${err.message}`);
   } finally {
     isLoadingList = false;
+    if (pendingListReload) {
+      pendingListReload = false;
+      loadPdfList();
+    }
   }
 }
 
 async function loadAndRenderPdf(pdfPath) {
-  if (!pdfPath || isRendering) return;
-  isRendering = true;
+  if (!pdfPath) return;
+  const thisLoadGen = ++loadPdfGeneration;
+  renderCoordinator.startNew();
   try {
     const status = await window.apiRequest(`/api/status?pdfPath=${encodeURIComponent(pdfPath)}`);
+    if (thisLoadGen !== loadPdfGeneration) return;
     if (!status?.target) return showEmpty();
     window.appState.lastMtime = status.target.mtime;
 
     const wsUri = await window.getWorkspaceUri();
+    if (thisLoadGen !== loadPdfGeneration) return;
     const wsParam = wsUri ? `&workspaceUri=${encodeURIComponent(wsUri)}` : '';
     const pageToken = new URLSearchParams(window.location.search).get('token');
     const tokenParam = pageToken ? `&token=${encodeURIComponent(pageToken)}` : '';
@@ -172,18 +200,20 @@ async function loadAndRenderPdf(pdfPath) {
       ? window.sidecar.fetch.bind(window.sidecar)
       : window.fetch;
     const res = await fetchFn(pdfUrl);
+    if (thisLoadGen !== loadPdfGeneration) return;
     if (!res.ok) return showEmpty();
 
     const arrayBuffer = await res.arrayBuffer();
+    if (thisLoadGen !== loadPdfGeneration) return;
     currentPdfDoc = await window.pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+    if (thisLoadGen !== loadPdfGeneration) return;
     emptyState.style.display = 'none';
     pagesContainer.style.display = 'flex';
     await renderAllPages();
+    if (thisLoadGen !== loadPdfGeneration) return;
     await window.refreshComments();
   } catch (err) {
     console.error('Render PDF error:', err);
-  } finally {
-    isRendering = false;
   }
 }
 

@@ -1,20 +1,24 @@
 import assert from 'node:assert/strict';
-import { copyFileSync, existsSync, mkdirSync } from 'node:fs';
+import { copyFileSync, existsSync, mkdirSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
+import { PDFDocument } from 'pdf-lib';
 import {
   addPdfComment,
   deletePdfComment,
+  findGitWorktrees,
   findWorkspacePdfs,
+  isPathInsideWorkspace,
   listPdfComments,
   modifyPdfComment,
+  parseGitWorktreeList,
+  resolveTargetPdf,
+  resolveWorkspaceRoot,
 } from '../sidecars/panel/main.mjs';
 import { handleMessage, executeToolCall } from '../src/mcp_server.mjs';
 import { TOOLS } from '../src/tool_schemas.mjs';
 
 console.log('=== Running Unit Tests for pdf-reviewer (Native PDF Annotations & MCP Suite) ===');
-
-const workspace = 'C:\\Users\\lukas\\Desktop\\weavemas-paper';
 
 // Helper to capture messages from handleMessage
 async function callRpc(msg) {
@@ -25,26 +29,32 @@ async function callRpc(msg) {
   return response;
 }
 
-// 1. Happy Path: Detect existing PDF
-const pdfs = findWorkspacePdfs(workspace);
-assert(Array.isArray(pdfs) && pdfs.length > 0, 'Expected at least 1 PDF');
-console.log(`✅ PASS: Happy Path 1: findWorkspacePdfs found ${pdfs.length} PDFs`);
-
-// Set up isolated scratch test fixture
+// Set up isolated cross-platform scratch workspace & synthetic PDF fixture
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const scratchDir = join(__dirname, 'scratch');
-if (!existsSync(scratchDir)) {
-  mkdirSync(scratchDir, { recursive: true });
-}
+const workspace = join(scratchDir, 'sample_workspace');
+mkdirSync(join(workspace, 'build'), { recursive: true });
+
+const seedDoc = await PDFDocument.create();
+seedDoc.addPage([612, 792]);
+seedDoc.addPage([612, 792]);
+const seedBytes = await seedDoc.save();
+writeFileSync(join(workspace, 'build', 'main.pdf'), seedBytes);
+
 const targetPdf = join(scratchDir, 'test_fixture.pdf');
-copyFileSync(pdfs[0].path, targetPdf);
+writeFileSync(targetPdf, seedBytes);
+
+// 1. Happy Path: Detect existing PDF
+const pdfs = findWorkspacePdfs(workspace);
+assert(Array.isArray(pdfs) && pdfs.length === 1, 'Expected 1 PDF in sample workspace');
+console.log(`✅ PASS: Happy Path 1: findWorkspacePdfs found ${pdfs.length} PDFs`);
 
 // 2. Happy Path: Embed native annotation into PDF & extract it back
 const { comment: added, mtime } = await addPdfComment(targetPdf, {
   type: 'text',
   page: 1,
   comment: 'Native PDF annotation test',
-  selectedText: 'December 16, 2026',
+  selectedText: 'Section 1.2',
   textRects: [{ xRatio: 0.1, yRatio: 0.2, wRatio: 0.3, hRatio: 0.05 }],
 });
 assert(added.id.startsWith('c_'), 'Expected valid comment ID');
@@ -228,7 +238,7 @@ console.log('✅ PASS: Failure Path 2: Null commentId rejected');
 // 13. Failure Path 3: Non-existent PDF path in direct listPdfComments
 await assert.rejects(
   async () => {
-    await listPdfComments('C:\\nonexistent\\missing.pdf');
+    await listPdfComments(join(scratchDir, 'nonexistent', 'missing.pdf'));
   },
   /CRITICAL: PDF file does not exist/,
   'Expected validation error for missing PDF'
@@ -473,17 +483,17 @@ const { comment: strikeComment } = await addPdfComment(targetPdf, {
   type: 'strike',
   page: 1,
   comment: 'Outdated terminology',
-  selectedText: 'December 16, 2026',
-  replacement: 'October 21, 2026',
+  selectedText: 'Legacy section title',
+  replacement: 'Updated section title',
   textRects: [{ xRatio: 0.1, yRatio: 0.2, wRatio: 0.3, hRatio: 0.05 }],
 });
 assert.equal(strikeComment.type, 'strike');
-assert.equal(strikeComment.replacement, 'October 21, 2026');
+assert.equal(strikeComment.replacement, 'Updated section title');
 const listWithStrike = await listPdfComments(targetPdf, 1);
 const foundStrike = listWithStrike.find((c) => c.id === strikeComment.id);
 assert(foundStrike, 'Expected strikethrough comment to be listed');
 assert.equal(foundStrike.type, 'strike');
-assert.equal(foundStrike.replacement, 'October 21, 2026');
+assert.equal(foundStrike.replacement, 'Updated section title');
 console.log('✅ PASS: Happy Path 7: Strikethrough & Replace (/StrikeOut) created and extracted');
 
 // 22. Failure Path: Invalid comment type rejected
@@ -1225,6 +1235,115 @@ assert.throws(
   'Expected validation error for null overlay in createPopover'
 );
 console.log('✅ PASS: Failure Path 36: validateCreatePopoverArgs rejects null comment or overlay');
+
+// 26. Workspace Isolation & Cross-Project Leak Prevention Tests
+const emptyWorkspaceDir = join(scratchDir, 'empty_project');
+mkdirSync(emptyWorkspaceDir, { recursive: true });
+const emptyWorkspaceUri = pathToFileURL(emptyWorkspaceDir).href;
+
+// Happy Path 22: resolveWorkspaceRoot resolves file:// URI and never falls back to another project
+const resolvedEmptyWs = resolveWorkspaceRoot({ workspaceUri: emptyWorkspaceUri }, scratchDir);
+assert.equal(resolvedEmptyWs.toLowerCase(), emptyWorkspaceDir.toLowerCase());
+assert.equal(findWorkspacePdfs(resolvedEmptyWs).length, 0, 'Empty workspace must report 0 PDFs, not another project');
+const resolvedPlainWs = resolveWorkspaceRoot({ workspacePath: emptyWorkspaceDir }, scratchDir);
+assert.equal(resolvedPlainWs.toLowerCase(), emptyWorkspaceDir.toLowerCase());
+console.log('✅ PASS: Happy Path 22: resolveWorkspaceRoot isolates active workspace without cross-project fallback');
+
+// Happy Path 23: resolveTargetPdf resolves valid in-workspace PDFs (relative & absolute)
+const inWsTargetRel = resolveTargetPdf(scratchDir, 'test_fixture.pdf');
+assert(inWsTargetRel && inWsTargetRel.path.toLowerCase() === targetPdf.toLowerCase());
+const inWsTargetAbs = resolveTargetPdf(scratchDir, targetPdf);
+assert(inWsTargetAbs && inWsTargetAbs.path.toLowerCase() === targetPdf.toLowerCase());
+console.log('✅ PASS: Happy Path 23: resolveTargetPdf resolves valid in-workspace PDFs');
+
+// Failure Path 37: resolveTargetPdf blocks cross-workspace absolute paths and parent traversal
+assert.equal(isPathInsideWorkspace(emptyWorkspaceDir, targetPdf), false);
+assert.equal(resolveTargetPdf(emptyWorkspaceDir, targetPdf), null, 'Cross-workspace absolute PDF path must be rejected');
+assert.equal(resolveTargetPdf(emptyWorkspaceDir, '../test_fixture.pdf'), null, 'Parent traversal PDF path must be rejected');
+assert.equal(resolveTargetPdf(scratchDir, 'nonexistent.pdf'), null, 'Missing explicit pdfPath must return null');
+console.log('✅ PASS: Failure Path 37: resolveTargetPdf rejects cross-workspace and traversal PDF paths');
+
+// Failure Path 38: Sidecar source contains no hardcoded user-home fallback, debug token endpoint, or 300ms workspaceUri race
+const mainMjsContent = fs.readFileSync(new URL('../sidecars/panel/main.mjs', import.meta.url), 'utf-8');
+assert(!/[A-Za-z]:\\\\Users\\\\|\/Users\/|\/home\//.test(mainMjsContent), 'main.mjs must not hardcode user home paths');
+assert(!mainMjsContent.includes('/api/debug_log'), 'main.mjs must not expose debug token logging endpoint');
+const refreshedAppJs = fs.readFileSync(new URL('../sidecars/panel/app.js', import.meta.url), 'utf-8');
+assert(!refreshedAppJs.includes('setTimeout(() => resolve(null), 300)'), 'app.js must not race getWorkspaceUris against 300ms timeout');
+assert(refreshedAppJs.includes('pendingListReload'), 'app.js must coalesce workspace-change reloads instead of dropping them');
+console.log('✅ PASS: Failure Path 38: No hardcoded user paths, debug token leaks, or dropped workspace-change races');
+
+// 27. Git Worktree PDF Discovery & Boundary Tests
+const parsedWorktrees = parseGitWorktreeList([
+  'worktree /repo/main',
+  'HEAD abc123',
+  'branch refs/heads/main',
+  '',
+  'worktree /repo/main/.worktrees/issue-17',
+  'HEAD def456',
+  'branch refs/heads/feat/issue-17',
+  '',
+  'worktree /repo/detached-wt',
+  'HEAD 7890ab',
+  'detached',
+].join('\n'));
+assert.equal(parsedWorktrees.length, 3);
+assert.equal(parsedWorktrees[0].branch, 'main');
+assert.equal(parsedWorktrees[1].branch, 'feat/issue-17');
+assert.equal(parsedWorktrees[2].branch, null);
+console.log('✅ PASS: Happy Path 24: parseGitWorktreeList parses main, branch, and detached worktrees');
+
+import { execFileSync } from 'node:child_process';
+const wtTestRoot = join(scratchDir, 'wt_test');
+const wtMainRepo = join(wtTestRoot, 'repo');
+const wtHiddenDir = join(wtMainRepo, '.worktrees', 'feat-hidden');
+const wtSiblingDir = join(wtTestRoot, 'sibling-wt');
+const wtUnrelatedDir = join(wtTestRoot, 'unrelated');
+mkdirSync(wtMainRepo, { recursive: true });
+mkdirSync(wtUnrelatedDir, { recursive: true });
+
+execFileSync('git', ['init', '-b', 'main'], { cwd: wtMainRepo, stdio: 'ignore' });
+execFileSync('git', ['config', 'user.email', 'test@example.com'], { cwd: wtMainRepo, stdio: 'ignore' });
+execFileSync('git', ['config', 'user.name', 'Test'], { cwd: wtMainRepo, stdio: 'ignore' });
+fs.writeFileSync(join(wtMainRepo, 'README.md'), 'init\n');
+execFileSync('git', ['add', '.'], { cwd: wtMainRepo, stdio: 'ignore' });
+execFileSync('git', ['commit', '-m', 'init'], { cwd: wtMainRepo, stdio: 'ignore' });
+execFileSync('git', ['worktree', 'add', '-b', 'feat/hidden', wtHiddenDir], { cwd: wtMainRepo, stdio: 'ignore' });
+execFileSync('git', ['worktree', 'add', '-b', 'feat/sibling', wtSiblingDir], { cwd: wtMainRepo, stdio: 'ignore' });
+
+mkdirSync(join(wtMainRepo, 'build'), { recursive: true });
+mkdirSync(join(wtHiddenDir, 'build'), { recursive: true });
+mkdirSync(join(wtSiblingDir, 'build'), { recursive: true });
+const mainRepoPdf = join(wtMainRepo, 'build', 'main.pdf');
+const hiddenWtPdf = join(wtHiddenDir, 'build', 'main.pdf');
+const siblingWtPdf = join(wtSiblingDir, 'build', 'main.pdf');
+const unrelatedPdf = join(wtUnrelatedDir, 'other.pdf');
+copyFileSync(targetPdf, mainRepoPdf);
+copyFileSync(targetPdf, hiddenWtPdf);
+copyFileSync(targetPdf, siblingWtPdf);
+copyFileSync(targetPdf, unrelatedPdf);
+
+const discoveredWorktrees = findGitWorktrees(wtMainRepo);
+assert.equal(discoveredWorktrees.length, 3, 'Expected main repo + 2 linked git worktrees');
+
+const wtPdfs = findWorkspacePdfs(wtMainRepo);
+assert.equal(wtPdfs.length, 3, 'Expected PDFs from main repo, hidden worktree, and sibling worktree');
+assert(wtPdfs.some((p) => p.path.toLowerCase() === mainRepoPdf.toLowerCase() && p.worktree === null));
+assert(wtPdfs.some((p) => p.path.toLowerCase() === hiddenWtPdf.toLowerCase() && p.relPath.startsWith('[feat/hidden] ')));
+assert(wtPdfs.some((p) => p.path.toLowerCase() === siblingWtPdf.toLowerCase() && p.relPath.startsWith('[feat/sibling] ')));
+
+// resolveTargetPdf must allow PDFs in linked worktrees (including external sibling worktrees) and still reject unrelated projects
+assert(resolveTargetPdf(wtMainRepo, hiddenWtPdf), 'Expected hidden worktree PDF to be allowed');
+assert(resolveTargetPdf(wtMainRepo, siblingWtPdf), 'Expected sibling worktree PDF to be allowed');
+assert.equal(resolveTargetPdf(wtMainRepo, unrelatedPdf), null, 'Unrelated project PDF must still be rejected');
+console.log('✅ PASS: Happy Path 25: findWorkspacePdfs & resolveTargetPdf support hidden and sibling git worktrees while blocking unrelated projects');
+
+// 28. CLI Flag Parser Tests (README CLI contract)
+import { parseCliModifyArgs } from '../sidecars/panel/pdf_annotations.mjs';
+assert.deepEqual(parseCliModifyArgs(['--status=resolved']), { status: 'resolved' });
+assert.deepEqual(parseCliModifyArgs(['--status=resolved', '--comment=Addressed']), { status: 'resolved', comment: 'Addressed' });
+assert.deepEqual(parseCliModifyArgs(['Updated', 'comment', 'text']), { comment: 'Updated comment text' });
+assert.throws(() => parseCliModifyArgs(['--unknown=123']), /CRITICAL: Unsupported CLI flag/);
+console.log('✅ PASS: Happy & Failure Path 26: parseCliModifyArgs supports --status/--comment flags and rejects unknown flags');
 
 await import('./test_markup_annotations.mjs');
 

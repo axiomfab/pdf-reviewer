@@ -6,7 +6,7 @@
 
 <p align="center">
   <b>Give Antigravity the superpower to read, write, modify, and delete PDF comments directly.</b><br>
-  An official Antigravity 2.0 UI plugin, live sidecar, and MCP tool suite that renders compiled PDFs live inside the <b>Right-Hand Auxiliary Pane</b> with automatic hot-reloading and empowers agents to perform full CRUD operations on native ISO 32000 PDF annotations.
+  An Antigravity 2.0 UI plugin, live sidecar, and MCP tool suite that renders compiled PDFs live inside the <b>Right-Hand Auxiliary Pane</b> with automatic hot-reloading and empowers agents to perform full CRUD operations on native ISO 32000 PDF annotations.
 </p>
 
 <p align="center">
@@ -42,8 +42,8 @@ An embedded, lightweight viewer rendered directly inside the Antigravity 2.0 aux
   * **<s>S</s> Strike Mode**: Select text to immediately embed a native PDF `/StrikeOut` markup.
   * 📌 **Note & ✂️ Snip Modes**: Drop sticky notes or marquee-box diagrams, math equations, or charts.
 * **Inline Popover Controls & History**: Click any highlight, underline, strikethrough, or note to edit its note, switch markup type (`H` / `U` / `S`), or delete it (`🗑️`), with full Undo/Redo (`Ctrl+Z` / `Ctrl+Y`) history.
-* **Comments Drawer & Controls**: Slide-out drawer with a complete list of annotations, status badges, and full Undo/Redo (`Ctrl+Z` / `Ctrl+Y`) history.
-* **Multi-Document Scanner**: Automatically finds PDF documents across project workspaces (root, `build/`, `output/`) with a one-click dropdown switcher.
+* **Show All Annotations Toggle (`💬 Show All`)**: Display all in-document comment popovers simultaneously across pages for quick full-page review.
+* **Workspace & Git Worktree Scanner**: Automatically finds PDF documents across the active workspace (`build/`, `output/`, etc.) and any linked `git worktree` checkouts with a one-click dropdown switcher.
 * **Zero Heavy Dependencies**: Built purely with `pdf-lib` for robust vector PDF manipulation and Node.js standard libraries for stdio JSON-RPC.
 
 ---
