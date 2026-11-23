@@ -345,6 +345,7 @@ export async function modifyPdfComment(pdfPath, commentId, updates) {
     selectedText,
     rect,
     textRects,
+    page,
   } = updates;
 
   if (
@@ -355,10 +356,11 @@ export async function modifyPdfComment(pdfPath, commentId, updates) {
     type === undefined &&
     selectedText === undefined &&
     rect === undefined &&
-    textRects === undefined
+    textRects === undefined &&
+    page === undefined
   ) {
     throw new Error(
-      "CRITICAL: At least one of 'comment', 'author', or 'status' must be provided to modify (or markup fields 'type', 'replacement', 'selectedText', 'rect', 'textRects')"
+      "CRITICAL: At least one of 'comment', 'author', or 'status' must be provided to modify (or markup/location fields 'type', 'replacement', 'selectedText', 'rect', 'textRects', 'page')"
     );
   }
   if (comment !== undefined && comment !== null && (typeof comment !== 'string' || !comment.trim())) {
@@ -385,18 +387,28 @@ export async function modifyPdfComment(pdfPath, commentId, updates) {
   if (textRects !== undefined && textRects !== null) {
     validateTextRects(textRects);
   }
+  if (page !== undefined && (typeof page !== 'number' || !Number.isInteger(page) || page < 1)) {
+    throw new Error("CRITICAL: 'page' must be a positive integer if provided");
+  }
 
   const pdfBytes = readFileSync(pdfPath);
   const pdfDoc = await PDFDocument.load(pdfBytes);
   const pages = pdfDoc.getPages();
+  if (page !== undefined && page > pages.length) {
+    throw new Error(`CRITICAL: Page ${page} out of bounds (PDF has ${pages.length} pages)`);
+  }
   const found = findAnnotationById(pages, commentId.trim());
 
   if (!found) {
     throw new Error(`CRITICAL: Comment with ID '${commentId}' not found in PDF`);
   }
 
-  const { annotDict, metaData, pageIndex } = found;
-  const targetPage = pages[pageIndex];
+  const { annots: sourceAnnots, annotIndex, annotDict, metaData, pageIndex: sourcePageIndex } = found;
+  const sourcePage = pages[sourcePageIndex];
+  const { width: sourceWidth, height: sourceHeight } = sourcePage.getSize();
+  const targetPageIndex = page !== undefined ? page - 1 : sourcePageIndex;
+  const isCrossPage = targetPageIndex !== sourcePageIndex;
+  const targetPage = pages[targetPageIndex];
   const { width, height } = targetPage.getSize();
   const currentComment = decodePdfText(annotDict.lookup(PDFName.of('Contents')));
   const currentAuthor = decodePdfText(annotDict.lookup(PDFName.of('T')));
@@ -421,12 +433,15 @@ export async function modifyPdfComment(pdfPath, commentId, updates) {
       ? comment.trim()
       : (metaData?.comment !== undefined ? metaData.comment : currentComment));
 
-  const fallbackRect = pdfRectToRatios(annotDict.lookupMaybe(PDFName.of('Rect'), PDFArray), width, height);
-  const fallbackQuadRects = quadPointsToRatioRects(annotDict.lookupMaybe(PDFName.of('QuadPoints'), PDFArray), width, height);
+  const fallbackRect = pdfRectToRatios(annotDict.lookupMaybe(PDFName.of('Rect'), PDFArray), sourceWidth, sourceHeight);
+  const fallbackQuadRects = quadPointsToRatioRects(annotDict.lookupMaybe(PDFName.of('QuadPoints'), PDFArray), sourceWidth, sourceHeight);
   let updatedRect = rect !== undefined ? rect : (metaData?.rect ?? fallbackRect);
   let updatedTextRects = textRects !== undefined ? textRects : (metaData?.textRects ?? fallbackQuadRects);
+  if (rect !== undefined && rect !== null && textRects === undefined && TEXT_SPAN_ANNOTATION_TYPES.has(resolvedType)) {
+    updatedTextRects = [rect];
+  }
 
-  if (textRects !== undefined || rect !== undefined || type !== undefined) {
+  if (textRects !== undefined || rect !== undefined || type !== undefined || isCrossPage) {
     if (TEXT_SPAN_ANNOTATION_TYPES.has(resolvedType)) {
       if (Array.isArray(updatedTextRects) && updatedTextRects.length > 0) {
         const computed = rectsToQuadPointsAndBounds(updatedTextRects, width, height);
@@ -449,11 +464,25 @@ export async function modifyPdfComment(pdfPath, commentId, updates) {
     }
   }
 
+  if (isCrossPage) {
+    const annotRefOrDict = sourceAnnots.get(annotIndex);
+    sourceAnnots.remove(annotIndex);
+    let targetAnnots = targetPage.node.lookupMaybe(PDFName.of('Annots'), PDFArray);
+    if (!targetAnnots) {
+      targetAnnots = pdfDoc.context.obj([]);
+      targetPage.node.set(PDFName.of('Annots'), targetAnnots);
+    }
+    targetAnnots.push(annotRefOrDict);
+    if (annotDict.has(PDFName.of('P')) && targetPage.ref) {
+      annotDict.set(PDFName.of('P'), targetPage.ref);
+    }
+  }
+
   const updatedEntry = {
     id: commentId.trim(),
     type: resolvedType,
     author: updatedAuthor,
-    page: metaData?.page || (pageIndex + 1),
+    page: targetPageIndex + 1,
     selectedText: selectedText !== undefined
       ? (selectedText ? selectedText : null)
       : (metaData?.selectedText ?? null),
@@ -560,6 +589,8 @@ export function parseCliModifyArgs(rawArgs) {
       const val = token.slice(eqIdx + 1);
       if (['status', 'comment', 'author', 'type', 'replacement'].includes(key)) {
         updates[key] = val;
+      } else if (key === 'page') {
+        updates.page = Number(val);
       } else {
         throw new Error(`CRITICAL: Unsupported CLI flag '--${key}'`);
       }

@@ -375,6 +375,102 @@ await assert.rejects(
 );
 console.log('✅ PASS: Markup Happy & Failure Path 5: MCP JSON-RPC CRUD & validation verified for highlights, underlines, strikethroughs');
 
+// 3b. Same-page Repositioning & Cross-page Relocation Tests
+const modifySchema = toolsRes.result.tools.find((t) => t.name === 'mcp_pdf_annotations_modify');
+assert.equal(modifySchema.inputSchema.properties.page.type, 'integer');
+assert.equal(modifySchema.inputSchema.properties.page.minimum, 1);
+
+const relocatePdf = join(scratchDir, 'relocate_fixture.pdf');
+const relocateDoc = await PDFDocument.create();
+relocateDoc.addPage([600, 800]);
+relocateDoc.addPage([1200, 1000]);
+writeFileSync(relocatePdf, await relocateDoc.save());
+
+const { comment: relocHl } = await addPdfComment(relocatePdf, {
+  type: 'highlight',
+  page: 1,
+  comment: 'Relocatable highlight',
+  textRects: [{ xRatio: 0.1, yRatio: 0.2, wRatio: 0.25, hRatio: 0.05 }],
+});
+
+// Same-page repositioning via rect on highlight (updates both /Rect and /QuadPoints)
+const { comment: movedSamePage } = await modifyPdfComment(relocatePdf, relocHl.id, {
+  rect: { xRatio: 0.3, yRatio: 0.4, wRatio: 0.2, hRatio: 0.05 },
+});
+assert.equal(movedSamePage.page, 1);
+assert.deepEqual(movedSamePage.rect, { xRatio: 0.3, yRatio: 0.4, wRatio: 0.2, hRatio: 0.05 });
+assert.deepEqual(movedSamePage.textRects, [{ xRatio: 0.3, yRatio: 0.4, wRatio: 0.2, hRatio: 0.05 }]);
+
+// Same-page repositioning via textRects
+const { comment: movedTextRects } = await modifyPdfComment(relocatePdf, relocHl.id, {
+  textRects: [
+    { xRatio: 0.1, yRatio: 0.2, wRatio: 0.25, hRatio: 0.05 },
+    { xRatio: 0.1, yRatio: 0.3, wRatio: 0.2, hRatio: 0.05 },
+  ],
+});
+assert.equal(movedTextRects.textRects.length, 2);
+assert(Math.abs(movedTextRects.rect.hRatio - 0.15) < 1e-9);
+
+// Cross-page relocation from page 1 (600x800) to page 2 (1200x1000) without explicit rect
+const { comment: relocatedPage2 } = await modifyPdfComment(relocatePdf, relocHl.id, { page: 2 });
+assert.equal(relocatedPage2.page, 2);
+assert.equal((await listPdfComments(relocatePdf, 1)).length, 0);
+assert.equal((await listPdfComments(relocatePdf, 2)).length, 1);
+
+const reloadedRelocDoc = await PDFDocument.load(readFileSync(relocatePdf));
+const relocPages = reloadedRelocDoc.getPages();
+const p1AnnotsArr = relocPages[0].node.get(PDFName.of('Annots')) ? relocPages[0].node.lookup(PDFName.of('Annots')) : null;
+assert(!p1AnnotsArr || p1AnnotsArr.size() === 0, 'Source page Annots should be empty after cross-page move');
+const p2AnnotsArr = relocPages[1].node.lookup(PDFName.of('Annots'));
+assert.equal(p2AnnotsArr.size(), 1, 'Target page Annots should contain relocated annotation');
+const p2AnnotDict = p2AnnotsArr.lookup(0);
+const p2Rect = p2AnnotDict.lookup(PDFName.of('Rect'));
+// Page 2 is 1200x1000; unionRatioRect is x:0.1..0.35 (120..420), y:0.2..0.35 -> pdf y: 650..800
+assert.equal(p2Rect.lookup(0).asNumber(), 120);
+assert.equal(p2Rect.lookup(1).asNumber(), 650);
+assert.equal(p2Rect.lookup(2).asNumber(), 420);
+assert.equal(p2Rect.lookup(3).asNumber(), 800);
+
+// Cross-page relocation + rect update via MCP tool
+const mcpRelocRes = await callRpc({
+  jsonrpc: '2.0',
+  id: 108,
+  method: 'tools/call',
+  params: {
+    name: 'mcp_pdf_annotations_modify',
+    arguments: {
+      pdfPath: relocatePdf,
+      commentId: relocHl.id,
+      page: 1,
+      rect: { xRatio: 0.5, yRatio: 0.5, wRatio: 0.1, hRatio: 0.05 },
+    },
+  },
+});
+assert(!mcpRelocRes.result.isError);
+const mcpRelocComment = JSON.parse(mcpRelocRes.result.content[0].text).comment;
+assert.equal(mcpRelocComment.page, 1);
+assert.deepEqual(mcpRelocComment.rect, { xRatio: 0.5, yRatio: 0.5, wRatio: 0.1, hRatio: 0.05 });
+
+// Failure paths for page relocation
+await assert.rejects(() => modifyPdfComment(relocatePdf, relocHl.id, { page: 0 }), /CRITICAL: 'page' must be a positive integer/);
+await assert.rejects(() => modifyPdfComment(relocatePdf, relocHl.id, { page: -1 }), /CRITICAL: 'page' must be a positive integer/);
+await assert.rejects(() => modifyPdfComment(relocatePdf, relocHl.id, { page: 1.5 }), /CRITICAL: 'page' must be a positive integer/);
+await assert.rejects(() => modifyPdfComment(relocatePdf, relocHl.id, { page: '2' }), /CRITICAL: 'page' must be a positive integer/);
+await assert.rejects(() => modifyPdfComment(relocatePdf, relocHl.id, { page: 99 }), /CRITICAL: Page 99 out of bounds/);
+await assert.rejects(
+  () => executeToolCall('mcp_pdf_annotations_modify', { pdfPath: relocatePdf, commentId: relocHl.id, page: 99 }),
+  /CRITICAL: Page 99 out of bounds/
+);
+await assert.rejects(
+  () => executeToolCall('mcp_pdf_annotations_modify', { pdfPath: relocatePdf, commentId: relocHl.id, page: 0 }),
+  /CRITICAL: 'page' must be a positive integer/
+);
+
+if (existsSync(relocatePdf)) {
+  rmSync(relocatePdf, { force: true });
+}
+console.log('✅ PASS: Markup Happy & Failure Path 5b: Same-page repositioning and cross-page relocation verified');
+
 // 4. Sidecar UI & History Contracts
 const html = readFileSync(new URL('../sidecars/panel/index.html', import.meta.url), 'utf8');
 const appJs = readFileSync(new URL('../sidecars/panel/app.js', import.meta.url), 'utf8');

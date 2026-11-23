@@ -143,6 +143,7 @@ export async function executeToolCall(name, args = {}) {
       selectedText,
       rect,
       textRects,
+      page,
     } = args;
     if (!pdfPath || typeof pdfPath !== 'string') {
       throw new Error("CRITICAL: 'pdfPath' is required and must be a string");
@@ -159,10 +160,11 @@ export async function executeToolCall(name, args = {}) {
       replacement === undefined &&
       selectedText === undefined &&
       rect === undefined &&
-      textRects === undefined
+      textRects === undefined &&
+      page === undefined
     ) {
       throw new Error(
-        "CRITICAL: At least one of 'comment', 'author', or 'status' must be provided to modify (or markup fields 'type', 'replacement', 'selectedText', 'rect', 'textRects')"
+        "CRITICAL: At least one of 'comment', 'author', or 'status' must be provided to modify (or markup/location fields 'type', 'replacement', 'selectedText', 'rect', 'textRects', 'page')"
       );
     }
     if (comment !== undefined && comment !== null && (typeof comment !== 'string' || !comment.trim())) {
@@ -189,6 +191,9 @@ export async function executeToolCall(name, args = {}) {
     if (textRects !== undefined && textRects !== null) {
       validateTextRects(textRects);
     }
+    if (page !== undefined && (typeof page !== 'number' || !Number.isInteger(page) || page < 1)) {
+      throw new Error("CRITICAL: 'page' must be a positive integer if provided");
+    }
 
     const updates = {};
     if (comment !== undefined) updates.comment = comment === null ? null : comment.trim();
@@ -199,6 +204,7 @@ export async function executeToolCall(name, args = {}) {
     if (selectedText !== undefined) updates.selectedText = selectedText;
     if (rect !== undefined) updates.rect = rect;
     if (textRects !== undefined) updates.textRects = textRects;
+    if (page !== undefined) updates.page = page;
 
     const res = await modifyPdfComment(pdfPath, targetId, updates);
     return JSON.stringify(res, null, 2);

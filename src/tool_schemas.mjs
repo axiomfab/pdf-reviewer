@@ -132,6 +132,11 @@ export const TOOLS = [
           type: 'string',
           description: 'Optional updated status (e.g. "open", "resolved").',
         },
+        page: {
+          type: 'integer',
+          minimum: 1,
+          description: 'Optional 1-based target page number to relocate the annotation to.',
+        },
       },
       required: ['pdfPath', 'commentId'],
     },
