@@ -1345,6 +1345,17 @@ assert.deepEqual(parseCliModifyArgs(['Updated', 'comment', 'text']), { comment: 
 assert.throws(() => parseCliModifyArgs(['--unknown=123']), /CRITICAL: Unsupported CLI flag/);
 console.log('✅ PASS: Happy & Failure Path 26: parseCliModifyArgs supports --status/--comment flags and rejects unknown flags');
 
+// 29. Icon-Only SVG Toolbar & Custom Inline-Badge Worktree Picker Tests
+const latestHtml = fs.readFileSync(new URL('../sidecars/panel/index.html', import.meta.url), 'utf-8');
+const latestStyles = fs.readFileSync(new URL('../sidecars/panel/styles.css', import.meta.url), 'utf-8');
+const latestApp = fs.readFileSync(new URL('../sidecars/panel/app.js', import.meta.url), 'utf-8');
+assert(latestHtml.includes('id="pdf-picker-trigger"') && latestHtml.includes('id="pdf-picker-menu"') && latestHtml.includes('id="pdf-picker-wt-badge"'));
+assert(!latestHtml.includes('<select id="pdf-select"'), 'Native select should be replaced by custom inline-badge picker');
+assert(latestStyles.includes('.wt-badge') && latestStyles.includes('.pdf-picker-menu') && latestStyles.includes('.mode-btn.active.mode-highlight'));
+assert(latestApp.includes('splitDisplayPath') && latestApp.includes('formatShortWorktreeLabel') && latestApp.includes('renderPickerMenu'));
+assert(wtPdfs.every((p) => typeof p.displayPath === 'string' && p.displayPath.length > 0), 'findWorkspacePdfs must expose displayPath');
+console.log('✅ PASS: Happy Path 27: Icon-only SVG toolbar and custom inline-badge git worktree picker verified');
+
 await import('./test_markup_annotations.mjs');
 
 // Clean up test scratch fixture

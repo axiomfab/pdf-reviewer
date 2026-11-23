@@ -121,6 +121,7 @@ export function findWorkspacePdfs(workspaceRoot) {
               name: entry.name,
               path: fullPath,
               relPath: label ? `[${label}] ${relInsideRoot}` : relInsideRoot,
+              displayPath: relInsideRoot,
               worktree: label || null,
               mtime: stat.mtimeMs,
               size: stat.size,

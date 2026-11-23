@@ -40,8 +40,15 @@ let loadPdfGeneration = 0;
 let cachedWorkspaceUri = null;
 let workspaceInitialized = false;
 let resizeDebounceTimer = null;
+let availablePdfs = [];
+let pickerOpen = false;
 
-const pdfSelect = document.getElementById('pdf-select');
+const pdfPicker = document.getElementById('pdf-picker');
+const pdfPickerTrigger = document.getElementById('pdf-picker-trigger');
+const pdfPickerFilename = document.getElementById('pdf-picker-filename');
+const pdfPickerWtBadge = document.getElementById('pdf-picker-wt-badge');
+const pdfPickerWtText = document.getElementById('pdf-picker-wt-text');
+const pdfPickerMenu = document.getElementById('pdf-picker-menu');
 const refreshBtn = document.getElementById('refresh-btn');
 const zoomInBtn = document.getElementById('zoom-in-btn');
 const zoomOutBtn = document.getElementById('zoom-out-btn');
@@ -118,6 +125,93 @@ window.apiRequest = async function (endpoint, method = 'GET', body = null) {
   }
 };
 
+const BRANCH_ICON_SVG = '<svg class="wt-branch-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="6" y1="3" x2="6" y2="15"/><circle cx="18" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M18 9a9 9 0 0 1-9 9"/></svg>';
+
+function splitDisplayPath(pdf) {
+  const raw = String(pdf?.displayPath || pdf?.relPath || pdf?.name || '').replace(/\\/g, '/');
+  const slashIdx = raw.lastIndexOf('/');
+  if (slashIdx === -1) return { dir: '', name: raw };
+  return { dir: raw.slice(0, slashIdx + 1), name: raw.slice(slashIdx + 1) };
+}
+
+function formatShortWorktreeLabel(worktree) {
+  if (!worktree || typeof worktree !== 'string') return '';
+  return worktree.replace(/^(feat|feature|fix|chore|docs|refactor)\//i, '');
+}
+
+function setPickerOpen(open) {
+  pickerOpen = Boolean(open);
+  if (pdfPickerMenu) pdfPickerMenu.classList.toggle('hidden', !pickerOpen);
+  if (pdfPickerTrigger) pdfPickerTrigger.setAttribute('aria-expanded', pickerOpen ? 'true' : 'false');
+}
+
+function updatePickerTrigger(pdf) {
+  if (!pdfPickerFilename || !pdfPickerWtBadge || !pdfPickerWtText) return;
+  if (!pdf) {
+    pdfPickerFilename.textContent = 'No PDFs found';
+    pdfPickerWtBadge.classList.add('hidden');
+    pdfPickerWtBadge.title = '';
+    if (pdfPickerTrigger) pdfPickerTrigger.title = 'No PDFs detected in workspace';
+    return;
+  }
+  const { dir, name } = splitDisplayPath(pdf);
+  pdfPickerFilename.textContent = name;
+  if (pdf.worktree) {
+    pdfPickerWtBadge.classList.remove('hidden');
+    pdfPickerWtText.textContent = formatShortWorktreeLabel(pdf.worktree);
+    pdfPickerWtBadge.title = `Git worktree: ${pdf.worktree}`;
+    if (pdfPickerTrigger) pdfPickerTrigger.title = `${dir}${name} · worktree: ${pdf.worktree}`;
+  } else {
+    pdfPickerWtBadge.classList.add('hidden');
+    pdfPickerWtText.textContent = '';
+    pdfPickerWtBadge.title = '';
+    if (pdfPickerTrigger) pdfPickerTrigger.title = `${dir}${name}`;
+  }
+}
+
+function renderPickerMenu() {
+  if (!pdfPickerMenu) return;
+  if (!availablePdfs.length) {
+    pdfPickerMenu.innerHTML = '<div class="pdf-picker-empty">No PDFs found in workspace</div>';
+    return;
+  }
+  const esc = window.escapeHtml || ((s) => String(s || '').replace(/[&<>"']/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch])));
+  pdfPickerMenu.innerHTML = '';
+  availablePdfs.forEach((pdf) => {
+    const isSelected = pdf.path === window.appState.currentTarget;
+    const { dir, name } = splitDisplayPath(pdf);
+    const sizeKb = `${Math.max(1, Math.round((pdf.size || 0) / 1024))} KB`;
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = `pdf-picker-option${isSelected ? ' selected' : ''}`;
+    btn.setAttribute('role', 'option');
+    btn.setAttribute('aria-selected', isSelected ? 'true' : 'false');
+    btn.title = pdf.worktree ? `${dir}${name} (${pdf.worktree})` : `${dir}${name}`;
+    const badgeHtml = pdf.worktree
+      ? `<span class="wt-badge" title="Git worktree: ${esc(pdf.worktree)}">${BRANCH_ICON_SVG}<span class="wt-badge-text">${esc(pdf.worktree)}</span></span>`
+      : '';
+    btn.innerHTML = `
+      <span class="pdf-option-left">
+        <span class="pdf-option-dot"></span>
+        <span class="pdf-option-path">${dir ? `<span class="pdf-option-dir">${esc(dir)}</span>` : ''}<span class="pdf-option-name">${esc(name)}</span></span>
+        ${badgeHtml}
+      </span>
+      <span class="pdf-option-size">${esc(sizeKb)}</span>
+    `;
+    btn.addEventListener('click', async () => {
+      setPickerOpen(false);
+      if (pdf.path === window.appState.currentTarget) return;
+      window.appState.currentTarget = pdf.path;
+      window.appState.lastMtime = null;
+      currentPdfDoc = null;
+      updatePickerTrigger(pdf);
+      renderPickerMenu();
+      await loadAndRenderPdf(window.appState.currentTarget);
+    });
+    pdfPickerMenu.appendChild(btn);
+  });
+}
+
 async function loadPdfList() {
   if (isLoadingList) {
     pendingListReload = true;
@@ -126,8 +220,8 @@ async function loadPdfList() {
   isLoadingList = true;
   const myGen = ++listLoadGeneration;
   try {
-    if (pdfSelect.children.length === 0) {
-      pdfSelect.innerHTML = '<option value="">Scanning...</option>';
+    if (availablePdfs.length === 0 && pdfPickerFilename) {
+      pdfPickerFilename.textContent = 'Scanning...';
     }
     const wsUriBefore = await window.getWorkspaceUri();
     const data = await window.apiRequest('/api/list');
@@ -136,37 +230,28 @@ async function loadPdfList() {
       return;
     }
     if (!data?.pdfs?.length) {
+      availablePdfs = [];
       window.appState.currentTarget = null;
       window.appState.lastMtime = null;
       currentPdfDoc = null;
-      pdfSelect.innerHTML = '<option value="">No PDFs found</option>';
+      updatePickerTrigger(null);
+      renderPickerMenu();
       showEmpty();
       await window.refreshComments();
       return;
     }
 
-    const existingPaths = Array.from(pdfSelect.options).map((o) => o.value).filter(Boolean);
-    const newPaths = data.pdfs.map((p) => p.path);
+    availablePdfs = data.pdfs;
 
-    const isSameList = existingPaths.length === newPaths.length &&
-      existingPaths.every((val, idx) => val === newPaths[idx]);
-
-    if (!isSameList) {
-      pdfSelect.innerHTML = '';
-      data.pdfs.forEach((pdf) => {
-        const opt = document.createElement('option');
-        opt.value = pdf.path;
-        opt.textContent = `${pdf.relPath || pdf.name} (${(pdf.size / 1024).toFixed(0)} KB)`;
-        pdfSelect.appendChild(opt);
-      });
-    }
-
-    if (!window.appState.currentTarget || !data.pdfs.some((p) => p.path === window.appState.currentTarget)) {
-      window.appState.currentTarget = data.pdfs[0].path;
-      pdfSelect.value = window.appState.currentTarget;
+    const currentMatch = availablePdfs.find((p) => p.path === window.appState.currentTarget);
+    if (!currentMatch) {
+      window.appState.currentTarget = availablePdfs[0].path;
+      updatePickerTrigger(availablePdfs[0]);
+      renderPickerMenu();
       await loadAndRenderPdf(window.appState.currentTarget);
     } else {
-      pdfSelect.value = window.appState.currentTarget;
+      updatePickerTrigger(currentMatch);
+      renderPickerMenu();
       await window.refreshComments();
     }
   } catch (err) {
@@ -337,11 +422,23 @@ if (modeStrikeBtn) modeStrikeBtn.addEventListener('click', () => setMode('strike
 if (modeNoteBtn) modeNoteBtn.addEventListener('click', () => setMode('note'));
 if (modeAreaBtn) modeAreaBtn.addEventListener('click', () => setMode('area'));
 
-pdfSelect.addEventListener('change', async (e) => {
-  window.appState.currentTarget = e.target.value;
-  window.appState.lastMtime = null;
-  currentPdfDoc = null;
-  await loadAndRenderPdf(window.appState.currentTarget);
+if (pdfPickerTrigger) {
+  pdfPickerTrigger.addEventListener('click', (e) => {
+    e.stopPropagation();
+    setPickerOpen(!pickerOpen);
+  });
+}
+
+document.addEventListener('click', (e) => {
+  if (pickerOpen && pdfPicker && !pdfPicker.contains(e.target)) {
+    setPickerOpen(false);
+  }
+});
+
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && pickerOpen) {
+    setPickerOpen(false);
+  }
 });
 
 if (commentsToggleBtn) {

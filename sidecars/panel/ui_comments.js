@@ -530,11 +530,17 @@ window.createPopover = createPopover;
 
 window.refreshComments = async function () {
   const pdfPath = window.appState.currentTarget;
-  if (!pdfPath) return;
+  const countEl = document.getElementById('comments-count') || commentsCount;
+  if (!pdfPath) {
+    window.appState.loadedComments = [];
+    if (countEl) countEl.textContent = '0';
+    window.renderCommentMarkersOnPages();
+    return;
+  }
   const data = await window.apiRequest(`/api/comments/list?pdfPath=${encodeURIComponent(pdfPath)}`);
   const comments = data?.comments || [];
   window.appState.loadedComments = comments;
-  if (commentsCount) commentsCount.textContent = comments.length;
+  if (countEl) countEl.textContent = comments.length;
   window.renderCommentMarkersOnPages();
 };
 
@@ -552,7 +558,8 @@ window.toggleShowAllComments = function (forceState) {
   if (toggleBtn) {
     toggleBtn.classList.toggle('active', isShowing);
     const count = window.appState.loadedComments?.length ?? 0;
-    toggleBtn.innerHTML = `💬 ${isShowing ? 'Hide All' : 'Show All'} (<span id="comments-count">${count}</span>)`;
+    const countEl = document.getElementById('comments-count');
+    if (countEl) countEl.textContent = String(count);
     toggleBtn.title = isShowing ? 'Hide comment boxes (show on hover)' : 'Display all comment boxes on page';
   }
   return isShowing;

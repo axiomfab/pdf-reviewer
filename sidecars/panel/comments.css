@@ -483,24 +483,48 @@ textarea#popup-input:focus { border-color: var(--accent); }
 .toggle-btn {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  gap: 5px;
+  height: 24px;
   background: var(--bg-tertiary);
-  color: var(--text-main);
+  color: var(--text-dim);
   border: 1px solid var(--border);
-  border-radius: 4px;
-  padding: 3px 8px;
+  border-radius: 6px;
+  padding: 0 7px;
   font-size: 11px;
   cursor: pointer;
-  transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+  transition: background-color 140ms ease, color 140ms ease, border-color 140ms ease;
+}
+.toggle-btn svg {
+  width: 13px;
+  height: 13px;
+  flex-shrink: 0;
 }
 .toggle-btn:hover {
   background: var(--bg-hover);
+  color: var(--text-main);
 }
 .toggle-btn.active {
-  background: var(--accent);
-  color: #fff;
-  border-color: var(--accent-hover);
+  background: rgba(59, 130, 246, 0.16);
+  color: #60a5fa;
+  border-color: rgba(59, 130, 246, 0.38);
+}
+.comments-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 16px;
+  height: 15px;
+  padding: 0 4px;
+  border-radius: 999px;
+  font-size: 10px;
   font-weight: 600;
+  line-height: 1;
+  background: rgba(59, 130, 246, 0.16);
+  color: #60a5fa;
+}
+.toggle-btn.active .comments-badge {
+  background: rgba(59, 130, 246, 0.32);
+  color: #93c5fd;
 }
 
 /* Display All Comment Boxes Mode */
