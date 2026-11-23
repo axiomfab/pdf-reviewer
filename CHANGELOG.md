@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.2.1](https://github.com/axiomfab/pdf-reviewer/compare/v1.2.0...v1.2.1) (2026-11-23)
+
+
+### Bug Fixes
+
+* **a11y:** add worktree screen-reader labels, aria-pressed states, and listbox keyboard nav ([#5](https://github.com/axiomfab/pdf-reviewer/issues/5)) ([f194e39](https://github.com/axiomfab/pdf-reviewer/commit/f194e394755ef8f48862d575857a0aef4f1d0f5f))
+
 ## [1.2.0](https://github.com/axiomfab/pdf-reviewer/compare/v1.1.0...v1.2.0) (2026-11-23)
 
 
