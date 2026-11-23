@@ -1357,6 +1357,7 @@ assert(wtPdfs.every((p) => typeof p.displayPath === 'string' && p.displayPath.le
 console.log('✅ PASS: Happy Path 27: Icon-only SVG toolbar and custom inline-badge git worktree picker verified');
 
 await import('./test_markup_annotations.mjs');
+await import('./test_a11y.mjs');
 
 // Clean up test scratch fixture
 import { rmSync, unlinkSync } from 'node:fs';

@@ -13,7 +13,7 @@
   <header>
     <div class="header-left">
       <div id="pdf-picker" class="pdf-picker">
-        <button id="pdf-picker-trigger" class="pdf-picker-trigger" type="button" aria-haspopup="listbox" aria-expanded="false" title="Switch PDF document">
+        <button id="pdf-picker-trigger" class="pdf-picker-trigger" type="button" aria-haspopup="listbox" aria-expanded="false" aria-controls="pdf-picker-menu" aria-label="Scanning for PDFs" title="Switch PDF document">
           <svg class="picker-file-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/>
             <polyline points="14 2 14 8 20 8"/>
@@ -23,7 +23,7 @@
             <svg class="wt-branch-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
               <line x1="6" y1="3" x2="6" y2="15"/><circle cx="18" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M18 9a9 9 0 0 1-9 9"/>
             </svg>
-            <span id="pdf-picker-wt-text" class="wt-badge-text"></span>
+            <span class="sr-only">git worktree </span><span id="pdf-picker-wt-text" class="wt-badge-text"></span>
           </span>
           <svg class="picker-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <polyline points="6 9 12 15 18 9"/>
@@ -35,22 +35,22 @@
 
     <div class="header-center">
       <div class="mode-switch" role="toolbar" aria-label="Annotation tools">
-        <button id="mode-text-btn" class="mode-btn mode-text active" type="button" title="Select Text to Comment" aria-label="Comment on text">
+        <button id="mode-text-btn" class="mode-btn mode-text active" type="button" title="Select Text to Comment" aria-label="Comment on text" aria-pressed="true">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
         </button>
-        <button id="mode-highlight-btn" class="mode-btn mode-highlight" type="button" title="Highlight Text" aria-label="Highlight text">
+        <button id="mode-highlight-btn" class="mode-btn mode-highlight" type="button" title="Highlight Text" aria-label="Highlight text" aria-pressed="false">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 11-6 6v3h9l3-3"/><path d="m22 12-4.6 4.6a2 2 0 0 1-2.8 0l-5.2-5.2a2 2 0 0 1 0-2.8L14 4"/></svg>
         </button>
-        <button id="mode-underline-btn" class="mode-btn mode-underline" type="button" title="Underline Text" aria-label="Underline text">
+        <button id="mode-underline-btn" class="mode-btn mode-underline" type="button" title="Underline Text" aria-label="Underline text" aria-pressed="false">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 4v6a6 6 0 0 0 12 0V4"/><line x1="4" y1="20" x2="20" y2="20"/></svg>
         </button>
-        <button id="mode-strike-btn" class="mode-btn mode-strike" type="button" title="Strikethrough Text" aria-label="Strikethrough text">
+        <button id="mode-strike-btn" class="mode-btn mode-strike" type="button" title="Strikethrough Text" aria-label="Strikethrough text" aria-pressed="false">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 4H9a3 3 0 0 0-2.83 4"/><path d="M14 12a4 4 0 0 1 0 8H6"/><line x1="4" y1="12" x2="20" y2="12"/></svg>
         </button>
-        <button id="mode-note-btn" class="mode-btn mode-note" type="button" title="Drop Sticky Note" aria-label="Drop sticky note">
+        <button id="mode-note-btn" class="mode-btn mode-note" type="button" title="Drop Sticky Note" aria-label="Drop sticky note" aria-pressed="false">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V8Z"/><path d="M15 3v4a2 2 0 0 0 2 2h4"/></svg>
         </button>
-        <button id="mode-area-btn" class="mode-btn mode-area" type="button" title="Snip Image / Diagram" aria-label="Snip area">
+        <button id="mode-area-btn" class="mode-btn mode-area" type="button" title="Snip Image / Diagram" aria-label="Snip area" aria-pressed="false">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2" stroke-dasharray="4 3"/></svg>
         </button>
       </div>
@@ -75,9 +75,9 @@
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
         </button>
       </div>
-      <button id="comments-toggle-btn" class="toggle-btn" type="button" title="Display all comment boxes on page" aria-label="Toggle all comments">
+      <button id="comments-toggle-btn" class="toggle-btn" type="button" title="Display all comment boxes on page" aria-label="Show all 0 comments" aria-pressed="false">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
-        <span id="comments-count" class="comments-badge">0</span>
+        <span id="comments-count" class="comments-badge" aria-hidden="true">0</span>
       </button>
       <button id="refresh-btn" class="ghost-icon-btn" type="button" title="Force Reload" aria-label="Refresh PDF">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/></svg>

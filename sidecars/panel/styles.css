@@ -36,6 +36,18 @@ body {
   display: none !important;
 }
 
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
 header {
   background-color: var(--bg-secondary);
   border-bottom: 1px solid var(--border);
@@ -207,6 +219,13 @@ header {
 
 .pdf-picker-option:hover {
   background: var(--bg-hover);
+}
+
+.pdf-picker-option:focus-visible,
+.pdf-picker-option:focus {
+  outline: none;
+  background: var(--bg-hover);
+  border-color: var(--accent);
 }
 
 .pdf-picker-option.selected {
